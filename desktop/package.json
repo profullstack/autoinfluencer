@@ -4,7 +4,8 @@
   "version": "0.2.1",
   "private": true,
   "description": "autoinfluencer desktop: the hosted app, the CLI and a local MCP server in one install.",
-  "author": "Profullstack, Inc.",
+  "author": { "name": "Profullstack, Inc.", "email": "riotcoder@profullstack.com" },
+  "homepage": "https://influencer.marketing.pit.world",
   "license": "MIT",
   "main": "main.js",
   "scripts": {
@@ -23,7 +24,7 @@
     "productName": "autoinfluencer",
     "files": ["main.js", "icon.png", "package.json"],
     "asarUnpack": ["node_modules/@profullstack/autoinfluencer/**"],
-    "linux": { "target": ["AppImage", "deb"], "category": "Office", "icon": "icon.png" },
+    "linux": { "target": ["AppImage", "deb"], "category": "Office", "icon": "icon.png", "maintainer": "Profullstack <riotcoder@profullstack.com>" },
     "mac": { "target": ["dmg"], "category": "public.app-category.productivity", "icon": "icon.png" },
     "win": { "target": ["nsis"], "icon": "icon.png" },
     "artifactName": "autoinfluencer-${version}-${os}-${arch}.${ext}"

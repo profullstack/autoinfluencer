@@ -12,6 +12,7 @@ import { consentPage, devicePage, errorPage, pageHeaders, newNonce } from './oau
 import { createCoinpay, PACKS } from './coinpay.js';
 import { createX402, PRICE_CENTS } from './x402.js';
 import { allFooters, startFooterRefresh } from './footers.js';
+import { CHECKOUT_ASSETS, CHECKOUT_PATH, checkoutPage, creditsCheckout, toWebRequest } from './checkout.js';
 import { HttpError, NO_STORE, send, readBody, jsonBody, formBody, clientIp, cookie, sameOrigin, newId } from './util.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -33,6 +34,16 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
   const oauth = createOAuth({ db, publicUrl, log: () => {} });
   const coinpay = createCoinpay({ env, db, publicUrl, fetch: f });
   const x402 = createX402({ env, publicUrl, fetch: f });
+  // The credits checkout page: the same coinpay.checkout() the API route calls, for the same account row.
+  const checkout = creditsCheckout({
+    publicUrl,
+    account: (cookieHeader) => oauth.sessionFor(cookieHeader)?.account ?? null,
+    start: async (accountId, pack) => {
+      const account = db.accountById(accountId);
+      if (!account) throw new Error('checkout: the signed-in account is gone');
+      return coinpay.checkout(account, pack);
+    },
+  });
   db.failOrphans?.();
 
   // c0mpute only: no paid frontier fallback in the hosted app.
@@ -141,7 +152,7 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
       annotations: { readOnlyHint: true },
       handler: async (_a, ctx = {}) => {
         if (!ctx.account) return { signed_in: false, x402_price_usd: PRICE_CENTS / 100 };
-        return { ...db.balance(ctx.account.id), x402_price_usd: PRICE_CENTS / 100, buy: `${publicUrl}/#credits` };
+        return { ...db.balance(ctx.account.id), x402_price_usd: PRICE_CENTS / 100, buy: `${publicUrl}${CHECKOUT_PATH}` };
       },
     },
   );
@@ -262,7 +273,8 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
 
   async function appRoute(req, res, path, method, url) {
     if (path === '/api/v1/coinpay/oauth/start' && method === 'GET') {
-      const { location, cookie: c } = coinpay.start(url.searchParams.get('return_to') || '/');
+      // `next` is what the checkout page's sign-in redirect sends; start() path-checks either.
+      const { location, cookie: c } = coinpay.start(url.searchParams.get('return_to') || url.searchParams.get('next') || '/');
       return send(res, 302, '', { location, 'set-cookie': c, ...NO_STORE });
     }
     if (path === '/api/v1/coinpay/oauth/callback' && method === 'GET') {
@@ -306,6 +318,21 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
     return send(res, 404, { error: 'not found' });
   }
 
+  /** GET: the page (or sign-in, then back here with the selection). POST: the plain form, then a 303 to CoinPay. */
+  async function checkoutRoute(req, res, method, url) {
+    if (method === 'GET') {
+      const account = oauth.sessionFor(req.headers.cookie)?.account ?? null;
+      if (!account) return send(res, 302, '', { location: checkout.signInUrl(url.searchParams), ...NO_STORE });
+      const b = db.balance(account.id);
+      const form = checkout.html({ query: url.searchParams, account: { id: account.id, email: account.email || '' }, notes: [`${b.credits} credits · ${b.free_left} free generations left today`] });
+      return send(res, 200, checkoutPage({ form, footers: allFooters(), who: account.name || account.email || 'signed in' }), { 'content-type': 'text/html; charset=utf-8', ...NO_STORE });
+    }
+    if (method !== 'POST') return send(res, 405, { error: 'GET or POST' }, { allow: 'GET, POST' });
+    sameOrigin(req, publicUrl);
+    const out = await checkout.POST(toWebRequest(req, publicUrl, await readBody(req, 16 * 1024)));
+    return send(res, out.status, await out.text(), Object.fromEntries(out.headers));
+  }
+
   startFooterRefresh();
 
   return async function handler(req, res) {
@@ -322,6 +349,11 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
       if (path.startsWith('/oauth/') || path === '/register') return await oauthRoute(req, res, path, method, url);
       if (path.startsWith('/api/v1/')) return await appRoute(req, res, path, method, url);
       if (path === '/mcp' || path === '/openapi.json' || /^\/api\/[a-z_]+$/.test(path)) return await toolHandler(req, res);
+      if (path === CHECKOUT_PATH) return await checkoutRoute(req, res, method, url);
+      if (method === 'GET' && Object.hasOwn(CHECKOUT_ASSETS, path)) {
+        const a = CHECKOUT_ASSETS[path];
+        return send(res, 200, a.body, { 'content-type': a.type, 'cache-control': url.searchParams.get('v') === a.v ? 'public, max-age=31536000, immutable' : 'public, max-age=3600' });
+      }
       if (method === 'GET' && (await staticFile(res, path))) return;
       return send(res, 404, { error: 'not found' });
     } catch (e) {

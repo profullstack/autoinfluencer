@@ -183,12 +183,4 @@ function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
 
-for (const b of $$('[data-pack]')) {
-  b.onclick = async () => {
-    const r = await api('/api/v1/credits/checkout', { method: 'POST', body: { pack: b.dataset.pack } });
-    if (r.data.url) location.href = r.data.url;
-    else alert(r.data.error ?? 'checkout failed');
-  };
-}
-
 boot();

@@ -12,6 +12,7 @@
   "dependencies": {
     "@profullstack/ai-providers": "^0.3.2",
     "@profullstack/autoinfluencer": "^0.1.0",
+    "@profullstack/checkout": "^0.1.3",
     "@profullstack/coinpay-onboard": "^0.5.1",
     "@profullstack/footer": "latest",
     "@profullstack/x402-gateway": "^0.18.1",

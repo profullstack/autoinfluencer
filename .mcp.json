@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "autoinfluencer": {
+      "command": "npx",
+      "args": ["-y", "@profullstack/autoinfluencer@latest", "mcp"]
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createTools } from './tools.js';
 
-export const VERSION = '0.2.0';
+export const VERSION = '0.2.1';
 
 const INSTRUCTIONS = `autoinfluencer writes social posts in a persona's voice for each network and keeps them honest.
 Flow: get or build a persona (persona_get / persona_template), then ideas -> draft (or repurpose a URL/text, or reply to someone else's post) -> lint -> queue_add -> publish_due.

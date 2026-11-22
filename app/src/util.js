@@ -15,6 +15,11 @@ export const NO_STORE = { 'cache-control': 'no-store' };
 
 export function send(res, status, body, headers = {}) {
   if (res.headersSent) return res.end();
+  // A file read from disk goes out as its bytes (the caller sets its content-type), never as JSON.
+  if (Buffer.isBuffer(body)) {
+    res.writeHead(status, { 'content-type': 'application/octet-stream', ...headers });
+    return res.end(body);
+  }
   const isStr = typeof body === 'string';
   res.writeHead(status, {
     'content-type': isStr ? (body.startsWith('<!doctype') ? 'text/html; charset=utf-8' : 'text/plain; charset=utf-8') : 'application/json; charset=utf-8',

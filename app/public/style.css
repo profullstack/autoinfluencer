@@ -63,3 +63,7 @@ legend { font-size: .92rem; margin-bottom: .35rem; }
 .agents dt { font-weight: 600; }
 .agents dd { margin: 0 0 .6rem; overflow-wrap: anywhere; }
 footer { max-width: 1180px; margin: 2rem auto 0; padding: 1rem; color: var(--muted); font-size: .9rem; }
+/* The checkout page (@profullstack/checkout), in this site's colours. */
+.pfc { --pfc-accent: var(--accent); --pfc-accent-fg: var(--accent-fg); --pfc-fg: var(--fg); --pfc-muted: var(--muted); --pfc-card: var(--card); --pfc-border: var(--line); --pfc-error: var(--err); --pfc-save-bg: var(--bg); --pfc-save-fg: var(--ok); --pfc-popular-bg: var(--bg); --pfc-popular-fg: var(--accent); --pfc-radius: 10px; }
+.pfc label { margin: 0; font-size: inherit; }
+.pfc fieldset { margin: 0; }

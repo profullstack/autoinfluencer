@@ -13,7 +13,8 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
-  if (/^\/(api|mcp|oauth|\.well-known)/.test(url.pathname)) return;
+  // The checkout page is per-account and never cached.
+  if (/^\/(api|mcp|oauth|checkout|\.well-known)/.test(url.pathname)) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {

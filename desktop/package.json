@@ -1,0 +1,31 @@
+{
+  "name": "autoinfluencer-desktop",
+  "productName": "autoinfluencer",
+  "version": "0.2.1",
+  "private": true,
+  "description": "autoinfluencer desktop: the hosted app, the CLI and a local MCP server in one install.",
+  "author": "Profullstack, Inc.",
+  "license": "MIT",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --publish never"
+  },
+  "dependencies": {
+    "@profullstack/autoinfluencer": "^0.2.0"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.profullstack.autoinfluencer",
+    "productName": "autoinfluencer",
+    "files": ["main.js", "icon.png", "package.json"],
+    "asarUnpack": ["node_modules/@profullstack/autoinfluencer/**"],
+    "linux": { "target": ["AppImage", "deb"], "category": "Office", "icon": "icon.png" },
+    "mac": { "target": ["dmg"], "category": "public.app-category.productivity", "icon": "icon.png" },
+    "win": { "target": ["nsis"], "icon": "icon.png" },
+    "artifactName": "autoinfluencer-${version}-${os}-${arch}.${ext}"
+  }
+}

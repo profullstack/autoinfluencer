@@ -10,6 +10,7 @@ and a publish queue. One package, every surface:
 - **HTTP API** with an OpenAPI document (ChatGPT Actions)
 - **Agent Skill** + **Claude Code plugin**, and guides for ChatGPT, claude.ai, c0mpute, Codex, Cursor
 - **Hosted app:** https://influencer.marketing.pit.world (PWA, API, MCP, CLI; CoinPay sign-in; x402 pay per call)
+- **Desktop app** (Linux AppImage/deb, macOS dmg, Windows exe) on every [release](https://github.com/profullstack/autoinfluencer/releases/latest): the app in a window plus the bundled CLI (`autoinfluencer --cli …`) and a local MCP server (Agents → Copy MCP config)
 
 Generation runs on the open [c0mpute](https://c0mpute.com) network: free small models without a key,
 larger ones with `C0MPUTE_API_KEY`. When no model answers, or with `--brief`, tools return the exact

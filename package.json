@@ -1,0 +1,31 @@
+{
+  "name": "@profullstack/autoinfluencer",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Persona-driven social posts for every network: ideas, native drafts, repurposing, value-adding replies, calendars, linting and a publish queue. Library, CLI, MCP server, HTTP API, and skills/plugins for Claude, ChatGPT, c0mpute, Codex and Cursor.",
+  "keywords": ["social-media", "influencer", "content", "marketing", "mcp", "claude-skill", "claude-plugin", "chatgpt", "c0mpute", "ai-agent", "bluesky", "mastodon", "linkedin"],
+  "repository": { "type": "git", "url": "git+https://github.com/profullstack/autoinfluencer.git" },
+  "homepage": "https://github.com/profullstack/autoinfluencer#readme",
+  "bugs": { "url": "https://github.com/profullstack/autoinfluencer/issues" },
+  "license": "MIT",
+  "author": "Profullstack, Inc.",
+  "exports": {
+    ".": { "types": "./index.d.ts", "import": "./src/index.js" },
+    "./tools": { "types": "./index.d.ts", "import": "./src/tools.js" },
+    "./mcp": { "types": "./index.d.ts", "import": "./src/mcp.js" },
+    "./server": { "types": "./index.d.ts", "import": "./src/server.js" },
+    "./package.json": "./package.json"
+  },
+  "bin": { "autoinfluencer": "bin/autoinfluencer.js" },
+  "files": ["src", "bin", "skills", "integrations", ".claude-plugin", ".mcp.json", "index.d.ts", "README.md", "LICENSE"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test",
+    "start": "node bin/autoinfluencer.js serve"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@profullstack/ai-providers": "^0.3.2",
+    "zod": "^4.1.0"
+  }
+}

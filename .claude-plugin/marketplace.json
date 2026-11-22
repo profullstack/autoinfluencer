@@ -1,0 +1,12 @@
+{
+  "name": "autoinfluencer",
+  "description": "autoinfluencer: persona-driven social posts for every network, as a Claude Code skill and MCP server.",
+  "owner": { "name": "Profullstack" },
+  "plugins": [
+    {
+      "name": "autoinfluencer",
+      "source": "./",
+      "description": "Persona-driven social posts for every network, as a skill and an MCP server."
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>autoinfluencer</title>
+  <meta name="description" content="Your AI social media manager: posts in your voice for every network, repurposing, value-adding replies and a posting calendar. On the c0mpute network. Sign in with CoinPay, pay per use with x402.">
+  <meta name="theme-color" content="#111111">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="alternate" type="application/json" href="/openapi.json" title="OpenAPI">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/"><img src="/icon.svg" alt="" width="28" height="28"> autoinfluencer</a>
+    <nav>
+      <a href="#agents">Agents</a>
+      <a href="https://github.com/profullstack/autoinfluencer">GitHub</a>
+      <span id="who" class="who"></span>
+    </nav>
+  </header>
+
+  <main>
+    <section id="hero" class="hero" hidden>
+      <h1>Your social media manager, in your voice.</h1>
+      <p class="lead">Native posts for X, Bluesky, Mastodon, Threads, LinkedIn, Reddit, Hacker News, Instagram, TikTok and YouTube.
+        Repurpose any article into posts, reply where it adds value, plan the week. No invented facts, no engagement bait, disclosure on by default.</p>
+      <p><a class="btn primary" href="/api/v1/coinpay/oauth/start">Sign in with CoinPay</a>
+        <a class="btn" href="#agents">Use it from Claude or ChatGPT</a></p>
+      <ul class="facts">
+        <li><b>3 free</b> generations a day, then credits or x402 pay-per-call</li>
+        <li>Runs on the open <a href="https://c0mpute.com">c0mpute</a> network</li>
+        <li>Web app, CLI, MCP and API: <code>npx -y @profullstack/autoinfluencer</code></li>
+      </ul>
+    </section>
+
+    <section id="app" hidden>
+      <div class="grid">
+        <form id="persona" class="card">
+          <h2>Persona</h2>
+          <label>Name <input name="name" required placeholder="Ada Builder"></label>
+          <label>Handle <input name="handle" placeholder="@adabuilds"></label>
+          <label>Niche <input name="niche" required placeholder="developer tools and indie SaaS"></label>
+          <label>Audience <input name="audience" required placeholder="working developers who want practical tips"></label>
+          <label>Voice <input name="voice" required placeholder="plain, specific, a little dry"></label>
+          <label>Content pillars <small>one per line</small><textarea name="pillars" rows="4" required></textarea></label>
+          <fieldset class="plats"><legend>Platforms</legend><div id="platforms"></div></fieldset>
+          <label>Words to avoid <small>comma separated</small><input name="avoid"></label>
+          <label>Call to action <input name="cta" placeholder="try the free tier"></label>
+          <label class="row"><input type="checkbox" name="disclose" checked> Add disclosure <input name="disclosure" value="(AI-assisted)" class="short"></label>
+          <button class="btn">Save persona</button>
+          <p class="status" id="persona-status" role="status"></p>
+        </form>
+
+        <div class="card work">
+          <div class="tabs" role="tablist">
+            <button role="tab" data-tool="draft" aria-selected="true">Draft</button>
+            <button role="tab" data-tool="repurpose">Repurpose</button>
+            <button role="tab" data-tool="reply">Reply</button>
+            <button role="tab" data-tool="ideas">Ideas</button>
+            <button role="tab" data-tool="calendar">Calendar</button>
+            <button role="tab" data-tool="lint">Check</button>
+          </div>
+          <form id="run">
+            <div data-for="draft"><label>Topic <textarea name="topic" rows="3" placeholder="How I cut CI time in half by caching per lockfile hash"></textarea></label>
+              <label>Link <input name="link" placeholder="https://"></label></div>
+            <div data-for="repurpose" hidden><label>URL <input name="url" placeholder="https://your.blog/post"></label>
+              <label>or text <textarea name="text" rows="5" placeholder="Paste an article, changelog or transcript"></textarea></label></div>
+            <div data-for="reply" hidden><label>Their post <textarea name="post" rows="4"></textarea></label>
+              <label>Goal <input name="goal" placeholder="answer the question with one concrete tip"></label></div>
+            <div data-for="ideas" hidden><label>Topic <input name="itopic" placeholder="optional"></label>
+              <label>How many <input name="count" type="number" min="1" max="30" value="10"></label></div>
+            <div data-for="calendar" hidden><label>Days <input name="days" type="number" min="1" max="30" value="7"></label>
+              <label class="row"><input type="checkbox" name="withIdeas"> Fill original posts with ideas (uses a generation)</label></div>
+            <div data-for="lint" hidden><label>Post <textarea name="ltext" rows="5"></textarea></label></div>
+            <div class="targets" data-for="draft repurpose reply lint"><span>For</span><div id="targets"></div></div>
+            <div class="actions">
+              <button class="btn primary" id="go">Write</button>
+              <label class="row small"><input type="checkbox" name="brief"> Brief only (free: get the prompt for your own AI)</label>
+            </div>
+          </form>
+          <p class="status" id="run-status" role="status" aria-live="polite"></p>
+          <div id="out" class="out"></div>
+        </div>
+      </div>
+
+      <section class="card credits">
+        <h2>Credits</h2>
+        <p id="balance">…</p>
+        <p>1 credit = 1 generation. Packs paid in crypto through CoinPay. Agents can also pay per call with x402.</p>
+        <div class="packs">
+          <button class="btn" data-pack="starter">100 credits · $5</button>
+          <button class="btn" data-pack="creator">500 credits · $20</button>
+          <button class="btn" data-pack="agency">2,000 credits · $60</button>
+        </div>
+      </section>
+    </section>
+
+    <section id="agents" class="card agents">
+      <h2>Use it from your agent</h2>
+      <dl>
+        <dt>Claude Code</dt><dd><code>/plugin marketplace add profullstack/autoinfluencer</code> then <code>/plugin install autoinfluencer@autoinfluencer</code></dd>
+        <dt>ChatGPT, claude.ai, c0mpute chat</dt><dd>Add a connector: <code><span class="origin"></span>/mcp</code> (sign in with CoinPay)</dd>
+        <dt>Custom GPT actions</dt><dd>Import <code><span class="origin"></span>/openapi.json</code></dd>
+        <dt>CLI</dt><dd><code>npx -y @profullstack/autoinfluencer login</code> · <code>npx -y @profullstack/autoinfluencer --help</code></dd>
+        <dt>Any MCP client, locally</dt><dd><code>npx -y @profullstack/autoinfluencer mcp</code></dd>
+        <dt>x402</dt><dd>Paid tools answer <code>402</code> with payment requirements; pay per call with an x402 wallet, no account needed.</dd>
+      </dl>
+    </section>
+  </main>
+
+  <!--FOOTERS-->
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

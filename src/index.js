@@ -6,3 +6,4 @@ export * from './generate.js';
 export * from './queue.js';
 export * from './publishers.js';
 export { createTools, inputJsonSchema } from './tools.js';
+export { login, logout, callRemote, readAuth, DEFAULT_URL } from './remote.js';

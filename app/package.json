@@ -1,0 +1,20 @@
+{
+  "name": "autoinfluencer-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The hosted autoinfluencer app at influencer.marketing.pit.world: PWA, API, MCP, CoinPay OAuth 2.1 sign-in, x402 pay-per-call. Runs as a c0mpute app.",
+  "engines": { "node": ">=22.6" },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@profullstack/ai-providers": "^0.3.2",
+    "@profullstack/autoinfluencer": "^0.1.0",
+    "@profullstack/coinpay-onboard": "^0.5.1",
+    "@profullstack/footer": "latest",
+    "@profullstack/x402-gateway": "^0.18.1",
+    "zod": "^4.1.0"
+  }
+}

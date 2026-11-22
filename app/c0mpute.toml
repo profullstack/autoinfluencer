@@ -1,0 +1,15 @@
+[app]
+name = "autoinfluencer"
+port = 8080
+health = "/healthz"
+state = "/data"
+snapshot_secs = 30
+memory_mb = 512
+cpus = 0.5
+domains = ["influencer.marketing.pit.world"]
+
+[app.env]
+NODE_ENV = "production"
+PUBLIC_URL = "https://influencer.marketing.pit.world"
+DB_PATH = "/data/autoinfluencer.db"
+AUTOINFLUENCER_TIMEOUT_MS = "240000"

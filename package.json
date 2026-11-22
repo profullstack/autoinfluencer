@@ -1,6 +1,6 @@
 {
   "name": "@profullstack/autoinfluencer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Persona-driven social posts for every network: ideas, native drafts, repurposing, value-adding replies, calendars, linting and a publish queue. Library, CLI, MCP server, HTTP API, and skills/plugins for Claude, ChatGPT, c0mpute, Codex and Cursor.",
   "keywords": ["social-media", "influencer", "content", "marketing", "mcp", "claude-skill", "claude-plugin", "chatgpt", "c0mpute", "ai-agent", "bluesky", "mastodon", "linkedin"],
@@ -20,7 +20,7 @@
   "files": ["src", "bin", "skills", "integrations", ".claude-plugin", ".mcp.json", "index.d.ts", "README.md", "LICENSE"],
   "engines": { "node": ">=20" },
   "scripts": {
-    "test": "node --test",
+    "test": "node --test test/core.test.js test/server.test.js",
     "start": "node bin/autoinfluencer.js serve"
   },
   "dependencies": {

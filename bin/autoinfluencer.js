@@ -5,6 +5,7 @@ import { existsSync } from 'node:fs';
 import { createTools } from '../src/tools.js';
 import { examplePersona, savePersona, defaultPersonaPath, loadPersona } from '../src/persona.js';
 import { VERSION } from '../src/mcp.js';
+import { login, logout, callRemote, readAuth, DEFAULT_URL } from '../src/remote.js';
 
 const HELP = `autoinfluencer ${VERSION} - persona-driven social posts for every network
 
@@ -26,6 +27,13 @@ Queue and publish
   queue add <text|-> -p <platform> [--at ISO] [--title T] [--subreddit S]
   queue list [--status queued|sent|failed]
   run [--yes] [--limit 10]            send due posts (dry run without --yes)
+
+Hosted app (${DEFAULT_URL}; sign in with CoinPay, pay per use)
+  login [--url URL]                   sign in from this terminal (device code)
+  whoami                              account, free generations left, credits
+  persona push                        save your local persona on your account
+  logout
+  --remote                            run any write command on the hosted app
 
 Surfaces
   mcp                                 MCP server over stdio
@@ -64,6 +72,8 @@ const { values: o, positionals } = parseArgs({
     limit: { type: 'string' },
     port: { type: 'string' },
     host: { type: 'string' },
+    remote: { type: 'boolean', short: 'r' },
+    url: { type: 'string' },
   },
 });
 
@@ -77,7 +87,10 @@ else main().catch((err) => {
 
 async function main() {
   const tools = Object.fromEntries(createTools({ local: true }).map((t) => [t.name, t]));
-  const call = (name, args) => tools[name].handler(args);
+  const call = (name, args) =>
+    o.remote && !['platforms', 'queue_add', 'queue_list', 'publish_due'].includes(name)
+      ? callRemote(name, args, { onWait: () => process.stderr.write('.') })
+      : tools[name].handler(args);
   const persona = o.persona ? await loadPersona(o.persona) : undefined;
   const mode = o.brief ? 'brief' : 'auto';
   const plats = o.platforms ? o.platforms.split(',').map((s) => s.trim()).filter(Boolean) : undefined;
@@ -91,7 +104,22 @@ async function main() {
       return out(`wrote ${path}\nEdit it: name, niche, audience, voice, pillars, platforms. Then: autoinfluencer ideas`);
     }
     case 'persona':
-      return print(await loadPersona(o.persona));
+      if (rest[0] === 'push') return print(await callRemote('persona_save', { persona: await loadPersona(o.persona) }));
+      return print(o.remote ? await callRemote('persona_get', {}) : await loadPersona(o.persona));
+    case 'login': {
+      const auth = await login({
+        url: o.url,
+        onCode: (d) => process.stderr.write(`Open ${d.verification_uri}\nsign in with CoinPay and enter the code: ${d.user_code}\nwaiting…\n`),
+      });
+      return out(`signed in to ${auth.url}`);
+    }
+    case 'logout':
+      return print(await logout());
+    case 'whoami': {
+      const auth = await readAuth();
+      if (!auth) return out('not signed in (autoinfluencer login)');
+      return print({ url: auth.url, ...(await callRemote('balance', {})) });
+    }
     case 'platforms':
       return print(o.json ? await call('platforms', {}) : (await call('platforms', {})).platforms.map((p) => `${p.id.padEnd(11)} ${String(p.limit).padStart(6)}  ${p.notes}`).join('\n'));
     case 'ideas':

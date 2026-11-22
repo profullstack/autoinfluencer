@@ -9,5 +9,7 @@ COPY --chown=node:node public ./public
 RUN chmod -R a+rX /app && mkdir -p /data && chown node:node /data
 USER node
 EXPOSE 8080
-HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://127.0.0.1:8080/healthz || exit 1
+# No Docker HEALTHCHECK: the c0mpute worker health-checks /healthz itself, and its 30 s snapshot
+# pause would fail a Docker check, which dev2 watchdog-autoheal answers with `docker restart`
+# (new dynamic port, stale in the worker, 502).
 CMD ["node", "src/server.js"]

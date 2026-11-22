@@ -71,11 +71,17 @@ function menu() {
         { label: 'Copy hosted MCP URL', click: () => clipboard.writeText(`${APP_URL}/mcp`) },
         {
           label: 'Show CLI command',
-          click: () =>
+          click: () => {
+            const bin = require.resolve('@profullstack/autoinfluencer/bin/autoinfluencer.js');
+            const cmd = process.platform === 'win32'
+              ? `set ELECTRON_RUN_AS_NODE=1 && "${process.execPath}" "${bin}" --help`
+              : `ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "${bin}" --help`;
+            clipboard.writeText(cmd);
             dialog.showMessageBox({
-              message: 'Run the bundled CLI',
-              detail: `"${process.execPath}" --cli --help\n\nor anywhere with Node: npx -y @profullstack/autoinfluencer --help`,
-            }),
+              message: 'Bundled CLI command copied',
+              detail: `${cmd}\n\nOr anywhere with Node: npx -y @profullstack/autoinfluencer --help`,
+            });
+          },
         },
       ],
     },

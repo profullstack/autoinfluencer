@@ -163,6 +163,37 @@ test('device flow gives the CLI a bearer that works on /mcp', async () => {
   }
 });
 
+test('the package CLI client signs in by device code and runs tools remotely', async () => {
+  const { login, callRemote } = await import('../../src/remote.js');
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const app = await start(goodAi);
+  try {
+    const sid = await signIn(app.base);
+    const env = { AUTOINFLUENCER_HOME: mkdtempSync(join(tmpdir(), 'ai-remote-')) };
+    const fastFetch = (url, init) => fetch(url, init);
+    const auth = await login({
+      url: app.base,
+      env,
+      fetch: fastFetch,
+      onCode: async (d) => {
+        const page = await (await fetch(`${app.base}/oauth/device`, { headers: { cookie: sid } })).text();
+        const csrf = JSON.parse(page.match(/var C=("[^"]+")/)[1]);
+        await post(app.base, '/oauth/device', { user_code: d.user_code, action: 'approve', csrf }, { cookie: sid });
+      },
+    });
+    assert.match(auth.access_token, /^aio_/);
+    await callRemote('persona_save', { persona }, { env });
+    const d = await callRemote('draft', { topic: 'ci' }, { env });
+    assert.equal(d.mode, 'ai');
+    const bal = await callRemote('balance', {}, { env });
+    assert.equal(bal.free_left, 2);
+  } finally {
+    app.close();
+  }
+});
+
 test('anonymous callers get free tools; paid tools answer 402; bad webhooks are refused', async () => {
   const app = await start(goodAi);
   try {

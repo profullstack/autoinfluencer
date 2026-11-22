@@ -1,6 +1,6 @@
 {
   "name": "autoinfluencer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Persona-driven social posts for every network: ideas, native drafts, repurposing, value-adding replies, calendars, linting and a publish queue. Skill + MCP server.",
   "author": { "name": "Profullstack" },
   "homepage": "https://github.com/profullstack/autoinfluencer",

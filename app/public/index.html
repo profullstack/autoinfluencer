@@ -25,6 +25,7 @@
 
   <main>
     <section id="hero" class="hero" hidden>
+      <p id="signin-note" class="notice" hidden></p>
       <h1>Your website, blog, shop and social media, run by your AI assistant.</h1>
       <p class="lead">Ask Claude, ChatGPT or any MCP client to build and host your site, write the blog, take bookings and orders, make ads and reels in your brand, and post to every network in your voice.
         The writing runs on the open <a href="https://c0mpute.com">c0mpute</a> network. The posting runs in a real browser on your own computer through the <a href="https://w3bs.org/desktop">W3BS desktop layer</a>.</p>
@@ -275,25 +276,55 @@
 
         <section data-panel-body="desktops" hidden>
           <div class="card">
-            <h2>Desktop environments</h2>
-            <p>A desktop environment is a computer that does the browser work for you: posting to networks, recording your app, signing in once where a network asks. Add one, run the connector on it, and it stays connected.</p>
-            <form id="desktop-new" class="inline">
-              <input name="name" required placeholder="My laptop" aria-label="Desktop name">
-              <select name="kind" aria-label="Kind"><option value="w3bs">Desktop with W3BS desktop layer</option><option value="headless">Headless box (agent browser)</option><option value="ssh-tunnel">Operator box over an SSH tunnel</option></select>
-              <button class="btn primary">Add desktop</button>
-            </form>
-            <div id="desktop-token" class="tokenbox" hidden></div>
-            <div id="desktop-list" class="list"></div>
+            <div class="panel-head">
+              <div>
+                <h2>Desktop environments</h2>
+                <p class="small">Computers that do the browser work for you: posting to networks and recording your app. They stay connected and you stay in charge.</p>
+              </div>
+              <button class="btn primary" id="desktop-start">+ Connect a computer</button>
+            </div>
+            <div id="desktop-list" class="dgrid"></div>
           </div>
-          <div class="card how">
-            <h2>How the two-way connection works</h2>
-            <ol>
-              <li><b>Desktop → us.</b> The connector (<code>autoinfluencer desktop connect</code>, or the desktop app) opens an outbound HTTPS long-poll to <code><span class="origin"></span>/api/v1/desktop/poll</code> with the desktop's token. No ports are opened and it works behind NAT. The same token lets agents on that computer call every tool here as you (MCP and REST).</li>
-              <li><b>Us → desktop.</b> Jobs (publish this post, open this page, record this app) come back down that same channel. The connector runs them through the local W3BS broker (<code>127.0.0.1:7801/mcp</code>), which drives the agent browser by DevTools: snapshot, click and fill by element, not screenshots. Results and frames go back to <code>/api/v1/desktop/result</code>.</li>
-              <li><b>The person stays in charge.</b> The desktop asks once before an agent may drive, sign-ins, CAPTCHAs and payments are handed to the person (never solved by the agent), and the emergency stop (Super+Alt+Escape) ends it at once.</li>
+
+          <div class="card wizard" id="desktop-wizard" hidden>
+            <div class="panel-head">
+              <h2>Connect a computer</h2>
+              <button class="btn small" id="wizard-close" type="button">Close</button>
+            </div>
+            <ol class="steps">
+              <li class="step" data-step="1">
+                <h3>Name it</h3>
+                <form id="desktop-new" class="inline">
+                  <input name="name" required placeholder="e.g. My laptop" aria-label="Computer name" autocomplete="off">
+                  <button class="btn primary">Continue</button>
+                </form>
+              </li>
+              <li class="step" data-step="2" aria-disabled="true">
+                <h3>On that computer, run these</h3>
+                <div class="ostabs" role="tablist">
+                  <button role="tab" data-os="unix" aria-selected="true">Linux / macOS</button>
+                  <button role="tab" data-os="win">Windows</button>
+                  <button role="tab" data-os="app">Desktop app</button>
+                </div>
+                <div id="wizard-cmds" class="cmds"><p class="small">Name the computer first.</p></div>
+                <p class="small">The token is shown once. It lets that computer work for your account; remove the computer here to revoke it.</p>
+              </li>
+              <li class="step" data-step="3" aria-disabled="true">
+                <h3>Wait for it to connect</h3>
+                <p id="wizard-status" class="waiting"><span class="dot"></span> Waiting for the computer to connect…</p>
+              </li>
             </ol>
-            <p class="small">For operators there is also the reverse SSH tunnel: our own fleet runs the server on <b>dev2</b>, and the desktop <b>bonita</b> keeps a reverse SSH tunnel (<code>ssh -N -R …</code>) open to dev2, so agents on dev2 reach bonita's desktop layer while bonita's connector polls dev2. That is the same two-way channel, with SSH carrying the server → desktop half.</p>
           </div>
+
+          <details class="card how">
+            <summary>How the connection works</summary>
+            <ul>
+              <li><b>Computer → us:</b> the connector keeps an outbound HTTPS connection open. No ports to open, works behind any router.</li>
+              <li><b>Us → computer:</b> jobs (post this, open this page, record this app) come back on that connection and run in the agent browser of the <a href="https://w3bs.org/desktop">W3BS desktop layer</a>.</li>
+              <li><b>You stay in charge:</b> it asks once before an agent may drive, hands you every sign-in and CAPTCHA, and Super+Alt+Escape stops it at once.</li>
+            </ul>
+            <p class="small">Our own fleet runs this way: the server on dev2, the desktop on bonita, with a reverse SSH tunnel as a second path from dev2 to bonita.</p>
+          </details>
         </section>
 
         <section data-panel-body="plan" hidden>

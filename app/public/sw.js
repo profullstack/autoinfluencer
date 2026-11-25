@@ -1,5 +1,5 @@
 // App shell offline; API and auth always go to the network.
-const CACHE = 'autoinfluencer-v2';
+const CACHE = 'autoinfluencer-v3';
 const SHELL = ['/', '/app.js', '/style.css', '/icon.svg', '/manifest.webmanifest', '/embed.js'];
 
 self.addEventListener('install', (e) => {

@@ -72,6 +72,14 @@ async function boot() {
   const r = await api('/api/v1/me');
   if (r.status !== 200) {
     $('#hero').hidden = false;
+    const want = location.hash.replace('#', '');
+    if ($(`[data-panel="${want}"]`)) {
+      const label = $(`[data-panel="${want}"]`).textContent.trim();
+      const note = $('#signin-note');
+      note.hidden = false;
+      note.innerHTML = `Sign in to open <b>${esc(label)}</b>. <a class="btn primary small" href="/api/v1/coinpay/oauth/start?return_to=${encodeURIComponent(`/#${want}`)}">Sign in with CoinPay</a>`;
+      for (const a of $$('a[href="/api/v1/coinpay/oauth/start"]')) a.href = `/api/v1/coinpay/oauth/start?return_to=${encodeURIComponent(`/#${want}`)}`;
+    }
     return;
   }
   me = r.data;
@@ -88,7 +96,7 @@ async function boot() {
   $('#schedule [name=platform]').innerHTML = NETWORKS.map((n) => `<option>${n}</option>`).join('');
   await loadSites();
   const want = new URLSearchParams(location.search).get('panel') || location.hash.replace('#', '');
-  if ($(`[data-panel="${want}"]`)) show(want);
+  show($(`[data-panel="${want}"]`) ? want : 'write');
 }
 
 function showBalance(d) {
@@ -108,9 +116,11 @@ function show(name) {
   for (const s of $$('[data-panel-body]')) s.hidden = s.dataset.panelBody !== name;
   const load = { sites: renderSites, blog: loadBlog, inbox: loadInbox, shop: loadShop, social: loadSocial, ads: loadAds, desktops: loadDesktops, plan: loadPlan }[name];
   load?.();
+  pollDesktops(name === 'desktops');
   history.replaceState(null, '', `#${name}`);
 }
 for (const b of $$('[data-panel]')) b.onclick = () => show(b.dataset.panel);
+window.addEventListener('hashchange', () => me && $(`[data-panel="${location.hash.slice(1)}"]`) && show(location.hash.slice(1)));
 
 async function loadSites() {
   try {
@@ -371,30 +381,162 @@ $('#capture').addEventListener('submit', async (e) => {
 });
 
 // ---------------------------------------------------------------- desktops
-async function loadDesktops() {
-  const [d, j] = await Promise.all([call('desktop_list').catch(() => ({ desktops: [] })), call('desktop_jobs', { limit: 20 }).catch(() => ({ jobs: [] }))]);
-  $('#desktop-list').innerHTML =
-    (d.desktops.length
-      ? d.desktops.map((x) => row(`<span class="dot ${x.online ? 'on' : ''}"></span><b>${esc(x.name)}</b> · ${esc(x.kind)} · ${x.online ? 'connected' : x.last_seen ? `last seen ${when(x.last_seen)}` : 'never connected'}${x.info?.platform ? `<br><small>${esc(x.info.hostname ?? '')} ${esc(x.info.platform)} · broker ${x.info.broker ? 'ok' : 'not found'} · browser ${x.info.browser ? 'ok' : 'not found'}</small>` : ''}`, `<button class="btn small" data-drm="${x.id}">Remove</button>`)).join('')
-      : '<p class="small">No desktop yet.</p>') +
-    (j.jobs.length ? `<h3>Recent jobs</h3>${j.jobs.map((x) => row(`<b>${esc(x.type)}</b> · <i>${esc(x.status)}</i> · ${when(x.created_at)}${x.error ? `<br><small class="bad">${esc(x.error)}</small>` : ''}${x.result?.url ? `<br><a href="${esc(x.result.url)}" target="_blank" rel="noopener">${esc(x.result.url)}</a>` : ''}${x.result?.frames?.length ? `<div class="frames">${x.result.frames.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="frame" loading="lazy"></a>`).join('')}</div>` : ''}`)).join('')}` : '');
-  for (const b of $$('[data-drm]')) b.onclick = () => confirm('Remove this desktop? Its token stops working.') && call('desktop_remove', { id: b.dataset.drm }).then(loadDesktops);
+let desktopTimer = null;
+let wizard = null; // { token, name, id, os }
+const COMMANDS = {
+  unix: (t) => [
+    ['Install the W3BS desktop layer (once)', 'curl -fsSL https://w3bs.org/desktop/install.sh | sh'],
+    ['Let autoinfluencer drive it (once)', 'w3bs desktop agents add autoinfluencer --preset broad'],
+    ['Start the agent browser', 'w3bs desktop browser launch'],
+    ['Connect this computer (keep it running)', `npx -y @profullstack/autoinfluencer desktop connect --token ${t}`],
+  ],
+  win: (t) => [
+    ['Install the W3BS desktop layer (once, PowerShell)', 'irm https://w3bs.org/desktop/install.ps1 | iex'],
+    ['Let autoinfluencer drive it (once)', 'w3bs desktop agents add autoinfluencer --preset broad'],
+    ['Start the agent browser', 'w3bs desktop browser launch'],
+    ['Connect this computer (keep it running)', `npx -y @profullstack/autoinfluencer desktop connect --token ${t}`],
+  ],
+  app: (t) => [
+    ['Install the W3BS desktop layer (once)', 'curl -fsSL https://w3bs.org/desktop/install.sh | sh'],
+    ['Download the autoinfluencer desktop app', 'https://github.com/profullstack/autoinfluencer/releases/latest'],
+    ['Copy this token, then in the app choose Agents → Connect this computer', t],
+  ],
+};
+
+function copyBtn(text) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'btn small copy';
+  b.textContent = 'Copy';
+  b.onclick = async () => {
+    await navigator.clipboard.writeText(text);
+    b.textContent = 'Copied';
+    setTimeout(() => (b.textContent = 'Copy'), 1500);
+  };
+  return b;
 }
+
+function renderCommands() {
+  const box = $('#wizard-cmds');
+  if (!wizard?.token) return;
+  box.replaceChildren(
+    ...COMMANDS[wizard.os](wizard.token).map(([label, cmd], i) => {
+      const row = document.createElement('div');
+      row.className = 'cmd';
+      row.innerHTML = `<span class="n">${i + 1}</span><div><div class="small">${esc(label)}</div><code></code></div>`;
+      row.querySelector('code').textContent = cmd;
+      row.append(copyBtn(cmd));
+      return row;
+    }),
+  );
+}
+for (const b of $$('.ostabs [role=tab]')) {
+  b.onclick = () => {
+    for (const t of $$('.ostabs [role=tab]')) t.setAttribute('aria-selected', String(t === b));
+    if (wizard) wizard.os = b.dataset.os;
+    renderCommands();
+  };
+}
+
+function openWizard() {
+  wizard = null;
+  $('#desktop-wizard').hidden = false;
+  $('#desktop-new').reset();
+  $('#desktop-new [name=name]').disabled = false;
+  $('#desktop-new button').disabled = false;
+  for (const s of $$('.step')) s.setAttribute('aria-disabled', String(s.dataset.step !== '1'));
+  $('#wizard-cmds').innerHTML = '<p class="small">Name the computer first.</p>';
+  $('#wizard-status').className = 'waiting';
+  $('#wizard-status').innerHTML = '<span class="dot"></span> Waiting for the computer to connect…';
+  $('#desktop-new [name=name]').focus();
+  $('#desktop-wizard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+$('#desktop-start').onclick = openWizard;
+$('#wizard-close').onclick = () => {
+  $('#desktop-wizard').hidden = true;
+  wizard = null;
+};
+
 $('#desktop-new').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const f = e.target;
+  const name = e.target.name.value.trim();
+  if (!name) return;
+  e.target.querySelector('button').disabled = true;
   try {
-    const r = await call('desktop_add', { name: f.name.value, kind: f.kind.value });
-    const box = $('#desktop-token');
-    box.hidden = false;
-    box.innerHTML = `<p><b>Token for ${esc(r.desktop.name)}</b> (shown once):</p><pre>${esc(r.token)}</pre><p>On that computer:</p><pre>${esc([...r.connect.setup, r.connect.run].join('\n'))}</pre><p class="small">${esc(r.connect.desktop_app)}</p><button class="btn small" id="copy-token">Copy token</button>`;
-    $('#copy-token').onclick = () => navigator.clipboard.writeText(r.token);
-    f.reset();
+    const r = await call('desktop_add', { name });
+    const os = /win/i.test(navigator.platform) ? 'win' : 'unix';
+    wizard = { token: r.token, name, id: r.desktop.id, os };
+    for (const t of $$('.ostabs [role=tab]')) t.setAttribute('aria-selected', String(t.dataset.os === os));
+    e.target.name.disabled = true;
+    for (const s of $$('.step')) s.setAttribute('aria-disabled', 'false');
+    renderCommands();
     loadDesktops();
   } catch (err) {
+    e.target.querySelector('button').disabled = false;
     alert(err.message);
   }
 });
+
+function health(d) {
+  const i = d.info ?? {};
+  if (!d.last_seen) return [['warn', 'Not connected yet: run the connect command on that computer']];
+  const out = [];
+  out.push(d.online ? ['ok', 'Connected'] : ['bad', `Offline since ${when(d.last_seen)}: start the connector again`]);
+  if (d.last_seen) {
+    out.push(i.broker ? ['ok', 'W3BS desktop layer found'] : ['bad', 'W3BS desktop layer not found: install it and run “w3bs desktop agents add autoinfluencer --preset broad”']);
+    out.push(i.browser ? ['ok', 'Agent browser ready'] : ['warn', 'Agent browser not running: run “w3bs desktop browser launch”']);
+  }
+  return out;
+}
+
+async function loadDesktops() {
+  const [d, j] = await Promise.all([call('desktop_list').catch(() => ({ desktops: [] })), call('desktop_jobs', { limit: 30 }).catch(() => ({ jobs: [] }))]);
+  const list = $('#desktop-list');
+  if (!d.desktops.length) {
+    list.innerHTML = `<div class="empty"><p><b>No computer connected yet.</b></p><p class="small">Connect your laptop or any always-on machine. Posts you schedule are published from it, in a real browser, signed in as you.</p></div>`;
+    if (!wizard && $('#desktop-wizard').hidden) openWizard();
+  } else {
+    list.innerHTML = d.desktops
+      .map((x) => {
+        const jobs = j.jobs.filter((y) => y.desktop_id === x.id).slice(0, 5);
+        return `<article class="dcard ${x.online ? 'on' : ''}">
+<header><span class="dot ${x.online ? 'on' : ''}"></span><b>${esc(x.name)}</b><span class="small">${x.info?.platform ? esc(`${x.info.hostname ?? ''} · ${x.info.platform}`) : ''}</span></header>
+<ul class="checks">${health(x).map(([k, t]) => `<li class="${k}">${esc(t)}</li>`).join('')}</ul>
+${jobs.length ? `<details><summary class="small">Recent jobs</summary><ul class="jobs">${jobs.map((y) => `<li><b>${esc(y.type)}</b> <i>${esc(y.status)}</i> <small>${when(y.created_at)}</small>${y.error ? `<br><small class="bad">${esc(y.error)}</small>` : ''}${y.result?.url ? ` <a href="${esc(y.result.url)}" target="_blank" rel="noopener">view</a>` : ''}${y.result?.frames?.length ? `<div class="frames">${y.result.frames.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="frame" loading="lazy"></a>`).join('')}</div>` : ''}</li>`).join('')}</ul></details>` : ''}
+<footer><button class="btn small" data-dtest="${x.id}" ${x.online ? '' : 'disabled'}>Send a test</button><button class="btn small" data-drm="${x.id}">Remove</button></footer>
+</article>`;
+      })
+      .join('');
+  }
+  for (const b of $$('[data-drm]')) b.onclick = () => confirm('Remove this computer? Its token stops working at once.') && call('desktop_remove', { id: b.dataset.drm }).then(loadDesktops);
+  for (const b of $$('[data-dtest]')) {
+    b.onclick = async () => {
+      b.disabled = true;
+      try {
+        await call('desktop_open', { url: 'https://w3bs.org/desktop', desktop: b.dataset.dtest });
+        b.textContent = 'Sent: watch that screen';
+      } catch (err) {
+        alert(err.message);
+        b.disabled = false;
+      }
+    };
+  }
+  if (wizard) {
+    const mine = d.desktops.find((x) => x.id === wizard.id);
+    if (mine?.online) {
+      const ok = mine.info?.broker && mine.info?.browser;
+      $('#wizard-status').className = ok ? 'connected' : 'partial';
+      $('#wizard-status').innerHTML = ok
+        ? `<span class="dot on"></span> <b>${esc(mine.name)} is connected.</b> Scheduled posts will publish from it.`
+        : `<span class="dot on"></span> <b>${esc(mine.name)} is connected</b>, but ${mine.info?.broker ? 'the agent browser is not running (step 3)' : 'the W3BS desktop layer is missing (steps 1 to 3)'}.`;
+    }
+  }
+}
+
+function pollDesktops(on) {
+  clearInterval(desktopTimer);
+  desktopTimer = on ? setInterval(loadDesktops, 4000) : null;
+}
 
 // ---------------------------------------------------------------- plan and team
 async function loadPlan() {

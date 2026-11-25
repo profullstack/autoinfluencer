@@ -25,6 +25,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      # The publish workflow runs alongside this one: wait until the package version it needs is on npm.
+      - name: Wait for the package on npm
+        shell: bash
+        run: |
+          want=$(node -p "require('../package.json').version")
+          for i in $(seq 1 40); do
+            [ "$(npm view @profullstack/autoinfluencer@$want version 2>/dev/null)" = "$want" ] && exit 0
+            sleep 15
+          done
+          echo "@profullstack/autoinfluencer@$want never appeared on npm" && exit 1
       - run: npm install --no-audit --no-fund
       - run: npx electron-builder --publish never
         env:

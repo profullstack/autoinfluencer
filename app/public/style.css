@@ -111,7 +111,7 @@ select { font: inherit; color: inherit; background: var(--bg); border: 1px solid
 /* ---- pricing ---- */
 .plans { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 .plan { display: flex; flex-direction: column; }
-.plan ul { padding-left: 1.1rem; flex: 1; display: grid; gap: .3rem; align-content: start; font-size: .95rem; }
+.plan ul { overflow-wrap: anywhere; padding-left: 1.1rem; flex: 1; display: grid; gap: .3rem; align-content: start; font-size: .95rem; }
 .plan.pick { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .price { margin: .3rem 0 0; }
 .price .amt { font-size: 2rem; font-weight: 800; }

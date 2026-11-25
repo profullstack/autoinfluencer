@@ -1,6 +1,6 @@
 {
   "name": "@profullstack/autoinfluencer",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "description": "Your website, blog, forms, bookings, shop, ads, reels and social posting, run by your AI assistant: persona-driven posts for every network plus the hosted platform at influencer.marketing.pit.world. Library, CLI, TUI, MCP server, HTTP API, desktop connector (W3BS desktop layer), skills and plugins for Claude, ChatGPT, c0mpute, Codex and Cursor.",
   "keywords": [

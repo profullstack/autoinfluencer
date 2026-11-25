@@ -1,7 +1,7 @@
 {
   "name": "autoinfluencer-desktop",
   "productName": "autoinfluencer",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "autoinfluencer desktop: the hosted app, the CLI and a local MCP server in one install.",
   "author": {
@@ -41,6 +41,10 @@
       "category": "Office",
       "icon": "icon.png",
       "maintainer": "Profullstack <riotcoder@profullstack.com>"
+    },
+    "deb": {
+      "afterInstall": "build/linux/after-install.sh",
+      "afterRemove": "build/linux/after-remove.sh"
     },
     "mac": {
       "target": [

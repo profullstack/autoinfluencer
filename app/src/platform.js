@@ -52,7 +52,7 @@ export function createPlatform({ db, ai, publicUrl, env = process.env, fetch: f 
     if (!s) throw new HttpError(404, ref ? `no site "${ref}" in your workspace (site_list)` : 'create a site first (site_create)');
     return s;
   };
-  const siteUrl = (s) => (s.domain ? `https://${s.domain}/` : `${publicUrl}/s/${s.slug}/`);
+  const siteUrl = (s) => (s.domain ? `https://${s.domain}/` : `${publicUrl}/site/${s.slug}/`);
   const confirmed = (args, what) => {
     if (args.confirm !== true) throw new HttpError(409, `${what}: ask the person, then call again with confirm: true`);
   };
@@ -103,7 +103,7 @@ export function createPlatform({ db, ai, publicUrl, env = process.env, fetch: f 
   }
 
   // ------------------------------------------------------------- ads
-  const adUrls = (id) => Object.fromEntries(Object.keys(AD_FORMATS).map((fmt) => [fmt, `${publicUrl}/a/${id}/${fmt.replace(':', 'x')}.svg`]));
+  const adUrls = (id) => Object.fromEntries(Object.keys(AD_FORMATS).map((fmt) => [fmt, `${publicUrl}/ad/${id}/${fmt.replace(':', 'x')}.svg`]));
   const adOut = (a) => ({ id: a.id, copy: a.copy, watermark: a.watermark, images: adUrls(a.id), created_at: a.created_at });
   const validateCopy = (v) => {
     const list = Array.isArray(v?.ads) ? v.ads : Array.isArray(v) ? v : [v];
@@ -297,7 +297,7 @@ export function createPlatform({ db, ai, publicUrl, env = process.env, fetch: f 
     }),
     T('site_list', 'Sites', 'Your sites with their addresses, live version and plan limits.', {}, async (_a, ctx) => {
       const o = owner(ctx);
-      return { sites: db.sites(o.id).map((s) => ({ slug: s.slug, name: s.name, url: siteUrl(s), free_url: `${publicUrl}/s/${s.slug}/`, domain: s.domain, live_version: s.live_version, brand: s.brand ? { name: s.brand.name, colors: s.brand.colors } : null })), limits: db.planOf(o.id).limits };
+      return { sites: db.sites(o.id).map((s) => ({ slug: s.slug, name: s.name, url: siteUrl(s), free_url: `${publicUrl}/site/${s.slug}/`, domain: s.domain, live_version: s.live_version, brand: s.brand ? { name: s.brand.name, colors: s.brand.colors } : null })), limits: db.planOf(o.id).limits };
     }, RO),
     T('site_get', 'Site details', 'One site: its files in the live version, forms, languages and settings.', { site: S }, async ({ site: ref }, ctx) => {
       const s = site(ctx, ref);

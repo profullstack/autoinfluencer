@@ -14,7 +14,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
   // The checkout page is per-account and never cached.
-  if (/^\/(api|mcp|oauth|checkout|join|s|a|f|r|pricing|\.well-known)(\/|$)/.test(url.pathname)) return;
+  if (/^\/(api|mcp|oauth|checkout|join|site|ad|f|r|pricing|\.well-known)(\/|$)/.test(url.pathname)) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {

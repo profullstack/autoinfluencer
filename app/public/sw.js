@@ -1,5 +1,5 @@
 // App shell offline; API and auth always go to the network.
-const CACHE = 'autoinfluencer-v3';
+const CACHE = 'autoinfluencer-v4';
 const SHELL = ['/', '/app.js', '/style.css', '/icon.svg', '/manifest.webmanifest', '/embed.js'];
 
 self.addEventListener('install', (e) => {
@@ -16,7 +16,7 @@ self.addEventListener('fetch', (e) => {
   // The checkout page is per-account and never cached.
   if (/^\/(api|mcp|oauth|checkout|join|site|ad|f|r|pricing|\.well-known)(\/|$)/.test(url.pathname)) return;
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: 'no-cache' })
       .then((res) => {
         const copy = res.clone();
         caches.open(CACHE).then((c) => c.put(e.request, copy));

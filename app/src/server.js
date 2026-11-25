@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join, extname, dirname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
@@ -24,6 +25,13 @@ const PUBLIC = join(ROOT, 'public');
 const GENERATIVE = new Set(['ideas', 'draft', 'repurpose', 'reply', 'calendar']);
 const JOB_WAIT_MS = 9000; // the c0mpute edge cuts upstream requests at 15 s
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8' };
+
+// The app's own script and stylesheet are linked with a content hash (?v=…), so a deploy is
+// picked up at once: the versioned URL is cached for good, the bare one is always revalidated.
+const ASSETS = ['/app.js', '/style.css'];
+export const ASSET_V = Object.fromEntries(ASSETS.map((a) => [a, createHash('sha256').update(readFileSync(join(PUBLIC, a))).digest('hex').slice(0, 10)]));
+/** Point the page's links to /app.js and /style.css at their current version. */
+export const versioned = (html) => html.replace(/(href|src)="(\/app\.js|\/style\.css)"/g, (_, attr, a) => `${attr}="${a}?v=${ASSET_V[a]}"`);
 
 /** Is this call one the server pays a model for? */
 export function isPaid(tool, args = {}) {
@@ -242,16 +250,19 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
   });
 
   // ----------------------------------------------------------------- pages
-  async function staticFile(res, path) {
+  async function staticFile(res, path, query) {
     const rel = path === '/' ? '/index.html' : path;
     const file = normalize(join(PUBLIC, rel));
     if (!file.startsWith(PUBLIC) || !existsSync(file)) return false;
     let body = await readFile(file);
     const type = TYPES[extname(file)] ?? 'application/octet-stream';
-    if (rel === '/index.html') body = body.toString('utf8').replace('<!--FOOTERS-->', allFooters());
+    if (rel === '/index.html') body = versioned(body.toString('utf8').replace('<!--FOOTERS-->', allFooters()));
     // embed.js is a module imported by sandboxed (opaque-origin) pages and other sites: CORS mode.
     const cors = rel === '/embed.js' ? { 'access-control-allow-origin': '*' } : {};
-    send(res, 200, body, { 'content-type': type, 'cache-control': rel === '/index.html' || rel === '/sw.js' ? 'no-cache' : 'public, max-age=3600', ...cors });
+    const cache = rel in ASSET_V && query?.get('v') === ASSET_V[rel]
+      ? 'public, max-age=31536000, immutable'
+      : ['/index.html', '/sw.js', '/embed.js', ...ASSETS].includes(rel) ? 'no-cache' : 'public, max-age=3600';
+    send(res, 200, body, { 'content-type': type, 'cache-control': cache, ...cors });
     return true;
   }
 
@@ -379,7 +390,7 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
       if (!account) return send(res, 302, '', { location: checkout.signInUrl(url.searchParams), ...NO_STORE });
       const b = db.balance(account.id);
       const form = checkout.html({ query: url.searchParams, account: { id: account.id, email: account.email || '' }, notes: [`${b.credits.toLocaleString('en-US')} credits · ${db.planOf(account.id).name} plan`] });
-      return send(res, 200, checkoutPage({ form, footers: allFooters(), who: account.name || account.email || 'signed in' }), { 'content-type': 'text/html; charset=utf-8', ...NO_STORE });
+      return send(res, 200, versioned(checkoutPage({ form, footers: allFooters(), who: account.name || account.email || 'signed in' })), { 'content-type': 'text/html; charset=utf-8', ...NO_STORE });
     }
     if (method !== 'POST') return send(res, 405, { error: 'GET or POST' }, { allow: 'GET, POST' });
     sameOrigin(req, publicUrl);
@@ -399,7 +410,7 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
       if (await sites(req, res, url)) return;
       if (method === 'GET' && path === '/pricing') {
         const who = oauth.sessionFor(req.headers.cookie)?.account;
-        return send(res, 200, pricingPage({ footers: allFooters(), who: who ? who.name || who.email || 'signed in' : '' }), { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' });
+        return send(res, 200, versioned(pricingPage({ footers: allFooters(), who: who ? who.name || who.email || 'signed in' : '' })), { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' });
       }
       if (method === 'GET' && path === '/join') {
         const who = oauth.sessionFor(req.headers.cookie)?.account;
@@ -425,7 +436,7 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
         const a = CHECKOUT_ASSETS[path];
         return send(res, 200, a.body, { 'content-type': a.type, 'cache-control': url.searchParams.get('v') === a.v ? 'public, max-age=31536000, immutable' : 'public, max-age=3600' });
       }
-      if (method === 'GET' && (await staticFile(res, path))) return;
+      if (method === 'GET' && (await staticFile(res, path, url.searchParams))) return;
       return send(res, 404, { error: 'not found' });
     } catch (e) {
       const status = e.status || 500;

@@ -317,6 +317,14 @@ test('pricing page and price sheet; team seats need Studio', async () => {
     assert.equal(sheet.plans.find((p) => p.id === 'solo').credits_monthly, 3000);
     const call = client(app.base, { cookie: await signIn(app.base) });
     await call('team_invite', {}, 402);
+    // A deploy is picked up at once: the page links its script and styles by content hash.
+    const home = await (await fetch(`${app.base}/`)).text();
+    const js = home.match(/src="(\/app\.js\?v=[0-9a-f]{10})"/)?.[1];
+    assert.ok(js, 'app.js is versioned');
+    assert.match(home, /href="\/style\.css\?v=[0-9a-f]{10}"/);
+    assert.match(page, /href="\/style\.css\?v=[0-9a-f]{10}"/);
+    assert.match((await fetch(`${app.base}${js}`)).headers.get('cache-control'), /immutable/);
+    assert.equal((await fetch(`${app.base}/app.js`)).headers.get('cache-control'), 'no-cache');
     const embed = await fetch(`${app.base}/embed.js`);
     assert.equal(embed.headers.get('access-control-allow-origin'), '*');
     assert.match(await embed.text(), /customElements\.define\('ai-form'/);

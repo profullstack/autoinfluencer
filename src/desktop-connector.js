@@ -67,7 +67,7 @@ export class Broker {
 
   async open() {
     if (this.session) return;
-    await this.rpc('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'autoinfluencer-connector', version: '0.3.0' } });
+    await this.rpc('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'autoinfluencer-connector', version: '0.3.1' } });
     await this.rpc('notifications/initialized', {}, true);
   }
 

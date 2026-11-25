@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>autoinfluencer</title>
-  <meta name="description" content="Your AI social media manager: posts in your voice for every network, repurposing, value-adding replies and a posting calendar. On the c0mpute network. Sign in with CoinPay, pay per use with x402.">
+  <title>autoinfluencer · your website, blog, shop and social, run by your AI assistant</title>
+  <meta name="description" content="Website hosting, blog, forms, newsletter, bookings, shop, ads, reels and social posting on every network, run from Claude, ChatGPT or any MCP client. Writing runs on the c0mpute network; posting runs on your own desktop environment. Sign in with CoinPay.">
   <meta name="theme-color" content="#111111">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
@@ -16,6 +16,7 @@
   <header class="top">
     <a class="brand" href="/"><img src="/icon.svg" alt="" width="28" height="28"> autoinfluencer</a>
     <nav>
+      <a href="/pricing">Pricing</a>
       <a href="#agents">Agents</a>
       <a href="https://github.com/profullstack/autoinfluencer">GitHub</a>
       <span id="who" class="who"></span>
@@ -24,91 +25,326 @@
 
   <main>
     <section id="hero" class="hero" hidden>
-      <h1>Your social media manager, in your voice.</h1>
-      <p class="lead">Native posts for X, Bluesky, Mastodon, Threads, LinkedIn, Reddit, Hacker News, Instagram, TikTok and YouTube.
-        Repurpose any article into posts, reply where it adds value, plan the week. No invented facts, no engagement bait, disclosure on by default.</p>
-      <p><a class="btn primary" href="/api/v1/coinpay/oauth/start">Sign in with CoinPay</a>
-        <a class="btn" href="#agents">Use it from Claude or ChatGPT</a></p>
+      <h1>Your website, blog, shop and social media, run by your AI assistant.</h1>
+      <p class="lead">Ask Claude, ChatGPT or any MCP client to build and host your site, write the blog, take bookings and orders, make ads and reels in your brand, and post to every network in your voice.
+        The writing runs on the open <a href="https://c0mpute.com">c0mpute</a> network. The posting runs in a real browser on your own computer through the <a href="https://w3bs.org/desktop">W3BS desktop layer</a>.</p>
+      <p><a class="btn primary" href="/api/v1/coinpay/oauth/start">Start free with CoinPay</a>
+        <a class="btn" href="/pricing">See pricing</a></p>
+      <form id="preview" class="card preview">
+        <h2>See ads made from your website</h2>
+        <p class="small">Paste your site: we read its brand kit and make 3 preview ads. Free, no sign-in.</p>
+        <div class="row-input"><input name="url" type="url" required placeholder="https://yourbusiness.com" aria-label="Your website"><button class="btn primary">Make previews</button></div>
+        <p class="status" id="preview-status" role="status" aria-live="polite"></p>
+        <div id="preview-out" class="adgrid"></div>
+      </form>
       <ul class="facts">
-        <li><b>3 free</b> generations a day, then credits or x402 pay-per-call</li>
-        <li>Runs on the open <a href="https://c0mpute.com">c0mpute</a> network</li>
-        <li>Web app, CLI, MCP and API: <code>npx -y @profullstack/autoinfluencer</code></li>
+        <li><b>Free plan:</b> a site, blog, forms and newsletter, 400 credits once, no card or wallet</li>
+        <li>MCP, REST API, CLI, TUI, desktop app and this PWA, all calling the same tools</li>
+        <li>Paid in crypto through CoinPay, or per call with x402</li>
       </ul>
     </section>
 
-    <section id="app" hidden>
-      <div class="grid">
-        <form id="persona" class="card">
-          <h2>Persona</h2>
-          <label>Name <input name="name" required placeholder="Ada Builder"></label>
-          <label>Handle <input name="handle" placeholder="@adabuilds"></label>
-          <label>Niche <input name="niche" required placeholder="developer tools and indie SaaS"></label>
-          <label>Audience <input name="audience" required placeholder="working developers who want practical tips"></label>
-          <label>Voice <input name="voice" required placeholder="plain, specific, a little dry"></label>
-          <label>Content pillars <small>one per line</small><textarea name="pillars" rows="4" required></textarea></label>
-          <fieldset class="plats"><legend>Platforms</legend><div id="platforms"></div></fieldset>
-          <label>Words to avoid <small>comma separated</small><input name="avoid"></label>
-          <label>Call to action <input name="cta" placeholder="try the free tier"></label>
-          <label class="row"><input type="checkbox" name="disclose" checked> Add disclosure <input name="disclosure" value="(AI-assisted)" class="short"></label>
-          <button class="btn">Save persona</button>
-          <p class="status" id="persona-status" role="status"></p>
-        </form>
+    <section id="app" class="workspace" hidden>
+      <nav class="side" aria-label="Workspace">
+        <button data-panel="write" aria-current="page">Write posts</button>
+        <button data-panel="sites">Sites</button>
+        <button data-panel="blog">Blog</button>
+        <button data-panel="inbox">Inbox</button>
+        <button data-panel="shop">Shop</button>
+        <button data-panel="social">Social</button>
+        <button data-panel="ads">Ads &amp; reels</button>
+        <button data-panel="desktops">Desktops</button>
+        <button data-panel="plan">Plan &amp; team</button>
+        <p class="small side-bal" id="side-balance"></p>
+      </nav>
 
-        <div class="card work">
-          <div class="tabs" role="tablist">
-            <button role="tab" data-tool="draft" aria-selected="true">Draft</button>
-            <button role="tab" data-tool="repurpose">Repurpose</button>
-            <button role="tab" data-tool="reply">Reply</button>
-            <button role="tab" data-tool="ideas">Ideas</button>
-            <button role="tab" data-tool="calendar">Calendar</button>
-            <button role="tab" data-tool="lint">Check</button>
+      <div class="panels">
+        <section data-panel-body="write">
+          <div class="grid">
+            <form id="persona" class="card">
+              <h2>Persona</h2>
+              <label>Name <input name="name" required placeholder="Ada Builder"></label>
+              <label>Handle <input name="handle" placeholder="@adabuilds"></label>
+              <label>Niche <input name="niche" required placeholder="developer tools and indie SaaS"></label>
+              <label>Audience <input name="audience" required placeholder="working developers who want practical tips"></label>
+              <label>Voice <input name="voice" required placeholder="plain, specific, a little dry"></label>
+              <label>Content pillars <small>one per line</small><textarea name="pillars" rows="4" required></textarea></label>
+              <fieldset class="plats"><legend>Platforms</legend><div id="platforms"></div></fieldset>
+              <label>Words to avoid <small>comma separated</small><input name="avoid"></label>
+              <label>Call to action <input name="cta" placeholder="try the free tier"></label>
+              <label class="row"><input type="checkbox" name="disclose" checked> Add disclosure <input name="disclosure" value="(AI-assisted)" class="short"></label>
+              <button class="btn">Save persona</button>
+              <p class="status" id="persona-status" role="status"></p>
+            </form>
+
+            <div class="card work">
+              <div class="tabs" role="tablist">
+                <button role="tab" data-tool="draft" aria-selected="true">Draft</button>
+                <button role="tab" data-tool="repurpose">Repurpose</button>
+                <button role="tab" data-tool="reply">Reply</button>
+                <button role="tab" data-tool="ideas">Ideas</button>
+                <button role="tab" data-tool="calendar">Calendar</button>
+                <button role="tab" data-tool="lint">Check</button>
+              </div>
+              <form id="run">
+                <div data-for="draft"><label>Topic <textarea name="topic" rows="3" placeholder="How I cut CI time in half by caching per lockfile hash"></textarea></label>
+                  <label>Link <input name="link" placeholder="https://"></label></div>
+                <div data-for="repurpose" hidden><label>URL <input name="url" placeholder="https://your.blog/post"></label>
+                  <label>or text <textarea name="text" rows="5" placeholder="Paste an article, changelog or transcript"></textarea></label></div>
+                <div data-for="reply" hidden><label>Their post <textarea name="post" rows="4"></textarea></label>
+                  <label>Goal <input name="goal" placeholder="answer the question with one concrete tip"></label></div>
+                <div data-for="ideas" hidden><label>Topic <input name="itopic" placeholder="optional"></label>
+                  <label>How many <input name="count" type="number" min="1" max="30" value="10"></label></div>
+                <div data-for="calendar" hidden><label>Days <input name="days" type="number" min="1" max="30" value="7"></label>
+                  <label class="row"><input type="checkbox" name="withIdeas"> Fill original posts with ideas (uses a generation)</label></div>
+                <div data-for="lint" hidden><label>Post <textarea name="ltext" rows="5"></textarea></label></div>
+                <div class="targets" data-for="draft repurpose reply lint"><span>For</span><div id="targets"></div></div>
+                <div class="actions">
+                  <button class="btn primary" id="go">Write</button>
+                  <label class="row small"><input type="checkbox" name="brief"> Brief only (free: get the prompt for your own AI)</label>
+                </div>
+              </form>
+              <p class="status" id="run-status" role="status" aria-live="polite"></p>
+              <div id="out" class="out"></div>
+            </div>
           </div>
-          <form id="run">
-            <div data-for="draft"><label>Topic <textarea name="topic" rows="3" placeholder="How I cut CI time in half by caching per lockfile hash"></textarea></label>
-              <label>Link <input name="link" placeholder="https://"></label></div>
-            <div data-for="repurpose" hidden><label>URL <input name="url" placeholder="https://your.blog/post"></label>
-              <label>or text <textarea name="text" rows="5" placeholder="Paste an article, changelog or transcript"></textarea></label></div>
-            <div data-for="reply" hidden><label>Their post <textarea name="post" rows="4"></textarea></label>
-              <label>Goal <input name="goal" placeholder="answer the question with one concrete tip"></label></div>
-            <div data-for="ideas" hidden><label>Topic <input name="itopic" placeholder="optional"></label>
-              <label>How many <input name="count" type="number" min="1" max="30" value="10"></label></div>
-            <div data-for="calendar" hidden><label>Days <input name="days" type="number" min="1" max="30" value="7"></label>
-              <label class="row"><input type="checkbox" name="withIdeas"> Fill original posts with ideas (uses a generation)</label></div>
-            <div data-for="lint" hidden><label>Post <textarea name="ltext" rows="5"></textarea></label></div>
-            <div class="targets" data-for="draft repurpose reply lint"><span>For</span><div id="targets"></div></div>
+        </section>
+
+        <section data-panel-body="sites" hidden>
+          <div class="card">
+            <h2>Sites</h2>
+            <p class="small">Each site is one brand with a free address. Deploy your built pages, or start from the starter page with a blog and contact form.</p>
+            <div id="sites-list" class="list"></div>
+            <form id="site-new" class="inline">
+              <input name="name" required placeholder="Business name" aria-label="Site name">
+              <input name="brand_from" type="url" placeholder="Read brand from https://… (optional)" aria-label="Brand source">
+              <button class="btn primary">Create site</button>
+            </form>
+            <p class="status" id="sites-status" role="status" aria-live="polite"></p>
+          </div>
+          <div class="card" id="site-detail" hidden>
+            <h2 id="site-title"></h2>
+            <p id="site-links" class="small"></p>
+            <div class="grid2">
+              <form id="deploy">
+                <h3>Deploy</h3>
+                <label>Your built site folder (with index.html) <input type="file" name="dir" webkitdirectory multiple required></label>
+                <label>Note <input name="note" placeholder="what changed"></label>
+                <button class="btn primary">Deploy as a new version</button>
+              </form>
+              <div><h3>Versions</h3><div id="versions" class="list"></div></div>
+            </div>
+            <div class="grid2">
+              <form id="brand">
+                <h3>Brand kit</h3>
+                <div class="swatches" id="swatches"></div>
+                <label>Read it from a website <input name="url" type="url" placeholder="https://"></label>
+                <button class="btn">Read brand</button>
+              </form>
+              <form id="domain">
+                <h3>Your own domain</h3>
+                <label>Domain <input name="domain" placeholder="www.yourbusiness.com"></label>
+                <button class="btn">Use this domain</button>
+                <pre id="dns" class="small"></pre>
+              </form>
+            </div>
+            <form id="settings">
+              <h3>Settings</h3>
+              <div class="grid2">
+                <label>Booking days <input name="days" value="1,2,3,4,5" placeholder="0=Sun … 6=Sat"></label>
+                <label>Hours <span class="row"><input name="start" value="09:00" class="short"> to <input name="end" value="17:00" class="short"></span></label>
+                <label>Slot minutes <input name="minutes" type="number" value="30" min="10" max="240"></label>
+                <label>UTC offset (minutes) <input name="utc_offset_minutes" type="number" value="0"></label>
+                <label>CoinPay payment link <small>{amount} and {order} are filled in</small><input name="payment_link" placeholder="https://coinpayportal.com/pay/…"></label>
+                <label>Notification webhook <small>https URL, gets every message as JSON</small><input name="notify_webhook" placeholder="https://"></label>
+              </div>
+              <button class="btn">Save settings</button>
+            </form>
+            <details class="embed"><summary>Drop-in components for any page</summary>
+<pre id="embed-code"></pre></details>
+            <p class="status" id="site-status" role="status" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <section data-panel-body="blog" hidden>
+          <div class="card">
+            <h2>Blog <select id="blog-site" class="site-pick" aria-label="Site"></select></h2>
+            <form id="blog-write" class="inline">
+              <input name="topic" required placeholder="Topic for a new post (written on c0mpute, 60 credits)" aria-label="Topic">
+              <input name="lang" value="en" class="short" aria-label="Language">
+              <button class="btn primary">Write it</button>
+            </form>
+            <p class="status" id="blog-status" role="status" aria-live="polite"></p>
+            <div id="blog-list" class="list"></div>
+          </div>
+          <form class="card" id="blog-edit" hidden>
+            <h2>Edit post</h2>
+            <input type="hidden" name="id">
+            <label>Title <input name="title" required></label>
+            <label>Summary <input name="summary"></label>
+            <label>Markdown <textarea name="body_md" rows="16" required></textarea></label>
             <div class="actions">
-              <button class="btn primary" id="go">Write</button>
-              <label class="row small"><input type="checkbox" name="brief"> Brief only (free: get the prompt for your own AI)</label>
+              <select name="status" aria-label="Status"><option value="draft">Draft</option><option value="published">Published</option></select>
+              <button class="btn primary">Save</button>
+              <input name="tlang" class="short" placeholder="es" aria-label="Translate to"><button class="btn" type="button" id="translate">Translate (10 credits)</button>
             </div>
           </form>
-          <p class="status" id="run-status" role="status" aria-live="polite"></p>
-          <div id="out" class="out"></div>
-        </div>
-      </div>
+        </section>
 
-      <section class="card credits">
-        <h2>Credits</h2>
-        <p id="balance">…</p>
-        <p>1 credit = 1 generation. Packs paid in crypto through CoinPay. Agents can also pay per call with x402.</p>
-        <div class="packs">
-          <a class="btn" href="/checkout?option=starter">100 credits · $5</a>
-          <a class="btn" href="/checkout?option=creator">500 credits · $20</a>
-          <a class="btn" href="/checkout?option=agency">2,000 credits · $60</a>
-        </div>
-      </section>
+        <section data-panel-body="inbox" hidden>
+          <div class="card">
+            <h2>Inbox <select id="inbox-site" class="site-pick" aria-label="Site"></select></h2>
+            <div class="tabs" role="tablist" id="inbox-tabs">
+              <button role="tab" data-kind="" aria-selected="true">All</button>
+              <button role="tab" data-kind="form">Messages</button>
+              <button role="tab" data-kind="booking">Bookings</button>
+              <button role="tab" data-kind="newsletter">Sign-ups</button>
+              <button role="tab" data-kind="order">Orders</button>
+            </div>
+            <div id="inbox-list" class="list"></div>
+          </div>
+        </section>
+
+        <section data-panel-body="shop" hidden>
+          <div class="card">
+            <h2>Shop <select id="shop-site" class="site-pick" aria-label="Site"></select></h2>
+            <p class="small">Solo and up. Customers pay with your CoinPay payment link, or you arrange payment and both of you get the order.</p>
+            <form id="product" class="inline">
+              <input name="name" required placeholder="Product" aria-label="Product name">
+              <input name="price" type="number" step="0.01" min="0" required placeholder="19.99" class="short" aria-label="Price">
+              <input name="category" placeholder="Category" class="short" aria-label="Category">
+              <input name="variants" placeholder="S, M, L" class="short" aria-label="Variants">
+              <button class="btn primary">Add product</button>
+            </form>
+            <p class="status" id="shop-status" role="status" aria-live="polite"></p>
+            <div id="products" class="list"></div>
+            <h3>Orders</h3>
+            <div id="orders" class="list"></div>
+          </div>
+        </section>
+
+        <section data-panel-body="social" hidden>
+          <div class="card">
+            <h2>Scheduled posts</h2>
+            <p class="small">Posts go out at their time from your desktop environment, in a real browser. Nothing posts without the schedule or your go-ahead.</p>
+            <form id="schedule">
+              <label>Post <textarea name="text" rows="4" required></textarea></label>
+              <div class="inline">
+                <select name="platform" aria-label="Network"></select>
+                <input name="at" type="datetime-local" aria-label="When">
+                <input name="link" placeholder="Link (optional)" aria-label="Link">
+                <label class="row small"><input type="checkbox" name="draft"> Save as draft</label>
+                <button class="btn primary">Schedule</button>
+              </div>
+            </form>
+            <p class="status" id="social-status" role="status" aria-live="polite"></p>
+            <div id="social-list" class="list"></div>
+          </div>
+        </section>
+
+        <section data-panel-body="ads" hidden>
+          <div class="card">
+            <h2>Ads <select id="ads-site" class="site-pick" aria-label="Site"></select></h2>
+            <form id="ad" class="inline">
+              <input name="topic" placeholder="What the ads are about (copy written on c0mpute)" aria-label="Topic">
+              <input name="count" type="number" min="1" max="6" value="2" class="short" aria-label="How many">
+              <button class="btn primary">Make ads (50 credits each)</button>
+            </form>
+            <p class="status" id="ads-status" role="status" aria-live="polite"></p>
+            <div id="ads-out" class="adgrid"></div>
+          </div>
+          <div class="card">
+            <h2>Reels</h2>
+            <form id="reel" class="inline">
+              <input name="url" type="url" placeholder="Page to make a reel of (default: your site)" aria-label="URL">
+              <select name="style" aria-label="Style"><option>flat</option><option>cinematic</option><option>pixar</option><option>anime</option><option>claymation</option><option>watercolor</option><option>comic</option></select>
+              <button class="btn primary">Make a reel (500 credits)</button>
+            </form>
+            <div id="reels" class="list"></div>
+          </div>
+          <div class="card">
+            <h2>App capture</h2>
+            <form id="capture" class="inline">
+              <input name="url" type="url" required placeholder="https://app.yourproduct.com/demo" aria-label="App URL">
+              <input name="steps" placeholder="Click texts, comma separated" aria-label="Steps">
+              <button class="btn primary">Record on my desktop (200 credits)</button>
+            </form>
+            <p class="status" id="capture-status" role="status" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <section data-panel-body="desktops" hidden>
+          <div class="card">
+            <h2>Desktop environments</h2>
+            <p>A desktop environment is a computer that does the browser work for you: posting to networks, recording your app, signing in once where a network asks. Add one, run the connector on it, and it stays connected.</p>
+            <form id="desktop-new" class="inline">
+              <input name="name" required placeholder="My laptop" aria-label="Desktop name">
+              <select name="kind" aria-label="Kind"><option value="w3bs">Desktop with W3BS desktop layer</option><option value="headless">Headless box (agent browser)</option><option value="ssh-tunnel">Operator box over an SSH tunnel</option></select>
+              <button class="btn primary">Add desktop</button>
+            </form>
+            <div id="desktop-token" class="tokenbox" hidden></div>
+            <div id="desktop-list" class="list"></div>
+          </div>
+          <div class="card how">
+            <h2>How the two-way connection works</h2>
+            <ol>
+              <li><b>Desktop → us.</b> The connector (<code>autoinfluencer desktop connect</code>, or the desktop app) opens an outbound HTTPS long-poll to <code><span class="origin"></span>/api/v1/desktop/poll</code> with the desktop's token. No ports are opened and it works behind NAT. The same token lets agents on that computer call every tool here as you (MCP and REST).</li>
+              <li><b>Us → desktop.</b> Jobs (publish this post, open this page, record this app) come back down that same channel. The connector runs them through the local W3BS broker (<code>127.0.0.1:7801/mcp</code>), which drives the agent browser by DevTools: snapshot, click and fill by element, not screenshots. Results and frames go back to <code>/api/v1/desktop/result</code>.</li>
+              <li><b>The person stays in charge.</b> The desktop asks once before an agent may drive, sign-ins, CAPTCHAs and payments are handed to the person (never solved by the agent), and the emergency stop (Super+Alt+Escape) ends it at once.</li>
+            </ol>
+            <p class="small">For operators there is also the reverse SSH tunnel: our own fleet runs the server on <b>dev2</b>, and the desktop <b>bonita</b> keeps a reverse SSH tunnel (<code>ssh -N -R …</code>) open to dev2, so agents on dev2 reach bonita's desktop layer while bonita's connector polls dev2. That is the same two-way channel, with SSH carrying the server → desktop half.</p>
+          </div>
+        </section>
+
+        <section data-panel-body="plan" hidden>
+          <div class="card">
+            <h2>Plan and credits</h2>
+            <p id="plan-now">…</p>
+            <div id="balance-detail" class="small"></div>
+            <h3>Plans</h3>
+            <div class="packs">
+              <a class="btn" href="/checkout?option=solo-month">Solo · $49/mo</a>
+              <a class="btn" href="/checkout?option=solo-year">Solo · $490/yr</a>
+              <a class="btn" href="/checkout?option=studio-month">Studio · $149/mo</a>
+              <a class="btn" href="/checkout?option=studio-year">Studio · $1,490/yr</a>
+              <a class="btn" href="#agency">Agency · talk to us</a>
+            </div>
+            <h3 id="credits">Top up</h3>
+            <div class="packs">
+              <a class="btn" href="/checkout?option=t1000">1,000 credits · $10</a>
+              <a class="btn" href="/checkout?option=t2750">2,750 credits · $25</a>
+              <a class="btn" href="/checkout?option=t6000">6,000 credits · $50</a>
+              <a class="btn" href="/checkout?option=t13000">13,000 credits · $100</a>
+            </div>
+            <p class="small">Paid in crypto through CoinPay. <a href="/pricing">Full pricing</a>.</p>
+          </div>
+          <div class="card">
+            <h2>Team</h2>
+            <div id="team" class="list"></div>
+            <button class="btn" id="invite">Make an invite link</button>
+            <p class="status" id="team-status" role="status" aria-live="polite"></p>
+          </div>
+        </section>
+      </div>
     </section>
 
     <section id="agents" class="card agents">
-      <h2>Use it from your agent</h2>
+      <h2>Every feature, on every surface</h2>
+      <p>Sites, blog, forms, bookings, shop, social, ads, reels, desktops and plans are tools. Each one is an MCP tool, a REST call, a CLI command, a TUI screen, a panel here in the PWA, and the same panel in the desktop app.</p>
       <dl>
-        <dt>Claude Code</dt><dd><code>/plugin marketplace add profullstack/autoinfluencer</code> then <code>/plugin install autoinfluencer@autoinfluencer</code></dd>
-        <dt>ChatGPT, claude.ai, c0mpute chat</dt><dd>Add a connector: <code><span class="origin"></span>/mcp</code> (sign in with CoinPay)</dd>
-        <dt>Custom GPT actions</dt><dd>Import <code><span class="origin"></span>/openapi.json</code></dd>
-        <dt>Desktop</dt><dd><a href="https://github.com/profullstack/autoinfluencer/releases/latest">Linux, macOS, Windows</a>, with the CLI and a local MCP server bundled. Or install this page as an app (PWA).</dd>
-        <dt>CLI</dt><dd><code>npx -y @profullstack/autoinfluencer login</code> · <code>npx -y @profullstack/autoinfluencer --help</code></dd>
-        <dt>Any MCP client, locally</dt><dd><code>npx -y @profullstack/autoinfluencer mcp</code></dd>
-        <dt>x402</dt><dd>Paid tools answer <code>402</code> with payment requirements; pay per call with an x402 wallet, no account needed.</dd>
+        <dt>MCP (Claude, ChatGPT, Codex, Cursor, c0mpute chat)</dt><dd>Add a connector: <code><span class="origin"></span>/mcp</code> and sign in with CoinPay. Claude Code: <code>/plugin marketplace add profullstack/autoinfluencer</code></dd>
+        <dt>CLI</dt><dd><code>npx -y @profullstack/autoinfluencer login</code> then <code>autoinfluencer tools</code>, <code>autoinfluencer call site_list</code>, <code>autoinfluencer site deploy ./dist</code></dd>
+        <dt>TUI</dt><dd><code>npx -y @profullstack/autoinfluencer tui</code>: every tool as a menu and a form in your terminal</dd>
+        <dt>Desktop app</dt><dd><a href="https://github.com/profullstack/autoinfluencer/releases/latest">Linux, macOS, Windows</a>: this app in a window, plus the CLI, a local MCP server and the desktop connector</dd>
+        <dt>PWA</dt><dd>Install this page as an app from your browser's menu</dd>
+        <dt>REST and OpenAPI</dt><dd><code>POST <span class="origin"></span>/api/&lt;tool&gt;</code>, schema at <code><span class="origin"></span>/openapi.json</code></dd>
+        <dt>x402</dt><dd>Paid tools answer <code>402</code> with the price; pay per call with an x402 wallet, no account needed.</dd>
       </dl>
+    </section>
+
+    <section id="agency" class="card">
+      <h2>Agency</h2>
+      <p>From $190/mo plus $49 per client site: a workspace per client, pooled credits with a cap per client, your name and logo, and the developer MCP, CLI, TUI and API for your team. <a href="https://outreachgraph.com/calendar/chovy">Book a call</a> and we will set it up.</p>
     </section>
   </main>
 

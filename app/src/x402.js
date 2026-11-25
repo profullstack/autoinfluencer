@@ -30,29 +30,29 @@ export function createX402({ env, publicUrl, fetch: f = globalThis.fetch }) {
 
   return {
     enabled,
-    async offer(tool) {
+    async offer(tool, cents = PRICE_CENTS) {
       const resource = `${publicUrl}/api/${tool}`;
-      const description = `autoinfluencer ${tool}: one generation`;
+      const description = `autoinfluencer ${tool}: $${(cents / 100).toFixed(2)}`;
       const to = await currentPayTo();
       if (!to) return null;
-      return { offer: buildOffer({ payTo: to, priceCents: PRICE_CENTS, resource, description }), resource, description };
+      return { offer: buildOffer({ payTo: to, priceCents: cents, resource, description }), resource, description };
     },
 
     /** Write a 402 with the offer. */
-    async deny(res, tool, error) {
-      const o = enabled() ? await this.offer(tool) : null;
+    async deny(res, tool, error, cents = PRICE_CENTS) {
+      const o = enabled() ? await this.offer(tool, cents) : null;
       const headers = { 'content-type': 'application/json', 'access-control-expose-headers': 'PAYMENT-REQUIRED, PAYMENT-RESPONSE' };
       if (o) headers['payment-required'] = paymentRequiredHeader(o.offer, { url: o.resource, description: o.description, error });
       res.writeHead(402, headers);
-      res.end(JSON.stringify({ ...(o?.offer ?? {}), error: error ?? 'payment required', buy_credits: `${publicUrl}/#credits` }));
+      res.end(JSON.stringify({ ...(o?.offer ?? {}), error: error ?? 'payment required', buy_credits: `${publicUrl}/pricing` }));
       return false;
     },
 
     /** Verify and settle an attached payment. -> { ok, payer?, reason? } and sets PAYMENT-RESPONSE. */
-    async settle(req, res, tool) {
+    async settle(req, res, tool, cents = PRICE_CENTS) {
       const proof = req.headers['payment-signature'] || req.headers['x-payment'];
       if (!proof || !enabled()) return { ok: false, reason: 'no payment' };
-      const o = await this.offer(tool);
+      const o = await this.offer(tool, cents);
       if (!o) return { ok: false, reason: 'payments unavailable' };
       const payment = decodePayment(proof);
       if (!payment) return { ok: false, reason: 'bad payment header' };

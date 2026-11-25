@@ -15,7 +15,7 @@ export const SIGN_IN_PATH = '/api/v1/coinpay/oauth/start';
 
 /** The packs as checkout options, in the order the app lists them. */
 export function packOptions(packs = PACKS) {
-  return Object.entries(packs).map(([id, p]) => ({ id, name: `${p.credits.toLocaleString('en-US')} credits`, price: p.usd }));
+  return Object.entries(packs).map(([id, p]) => ({ id, name: p.name ?? `${p.credits.toLocaleString('en-US')} credits`, price: p.usd }));
 }
 
 /**
@@ -28,10 +28,10 @@ export function packOptions(packs = PACKS) {
 export function creditsCheckout({ publicUrl, account, start, packs = PACKS }) {
   return createCheckout({
     site: 'autoinfluencer',
-    title: 'Buy credits',
-    subtitle: '1 credit = 1 generation.',
-    optionsLabel: 'Pack',
-    processor: 'Packs are paid in crypto through CoinPay.',
+    title: 'Credits and plans',
+    subtitle: '1 credit = $0.01. A plan covers the period you pay for, with its monthly credits.',
+    optionsLabel: 'Choose',
+    processor: 'Paid in crypto through CoinPay. No card, no contract.',
     action: CHECKOUT_PATH,
     page: CHECKOUT_PATH,
     siteUrl: publicUrl,

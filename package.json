@@ -1,24 +1,82 @@
 {
   "name": "@profullstack/autoinfluencer",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "type": "module",
-  "description": "Persona-driven social posts for every network: ideas, native drafts, repurposing, value-adding replies, calendars, linting and a publish queue. Library, CLI, MCP server, HTTP API, and skills/plugins for Claude, ChatGPT, c0mpute, Codex and Cursor.",
-  "keywords": ["social-media", "influencer", "content", "marketing", "mcp", "claude-skill", "claude-plugin", "chatgpt", "c0mpute", "ai-agent", "bluesky", "mastodon", "linkedin"],
-  "repository": { "type": "git", "url": "git+https://github.com/profullstack/autoinfluencer.git" },
+  "description": "Your website, blog, forms, bookings, shop, ads, reels and social posting, run by your AI assistant: persona-driven posts for every network plus the hosted platform at influencer.marketing.pit.world. Library, CLI, TUI, MCP server, HTTP API, desktop connector (W3BS desktop layer), skills and plugins for Claude, ChatGPT, c0mpute, Codex and Cursor.",
+  "keywords": [
+    "ads",
+    "ai-agent",
+    "blog",
+    "bluesky",
+    "bookings",
+    "c0mpute",
+    "chatgpt",
+    "claude-plugin",
+    "claude-skill",
+    "content",
+    "influencer",
+    "linkedin",
+    "marketing",
+    "mastodon",
+    "mcp",
+    "shop",
+    "social-media",
+    "tui",
+    "w3bs",
+    "website-builder"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/profullstack/autoinfluencer.git"
+  },
   "homepage": "https://github.com/profullstack/autoinfluencer#readme",
-  "bugs": { "url": "https://github.com/profullstack/autoinfluencer/issues" },
+  "bugs": {
+    "url": "https://github.com/profullstack/autoinfluencer/issues"
+  },
   "license": "MIT",
   "author": "Profullstack, Inc.",
   "exports": {
-    ".": { "types": "./index.d.ts", "import": "./src/index.js" },
-    "./tools": { "types": "./index.d.ts", "import": "./src/tools.js" },
-    "./mcp": { "types": "./index.d.ts", "import": "./src/mcp.js" },
-    "./server": { "types": "./index.d.ts", "import": "./src/server.js" },
-    "./package.json": "./package.json"
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./src/index.js"
+    },
+    "./tools": {
+      "types": "./index.d.ts",
+      "import": "./src/tools.js"
+    },
+    "./mcp": {
+      "types": "./index.d.ts",
+      "import": "./src/mcp.js"
+    },
+    "./server": {
+      "types": "./index.d.ts",
+      "import": "./src/server.js"
+    },
+    "./package.json": "./package.json",
+    "./desktop-connector": {
+      "import": "./src/desktop-connector.js"
+    },
+    "./tui": {
+      "import": "./src/tui.js"
+    }
   },
-  "bin": { "autoinfluencer": "bin/autoinfluencer.js" },
-  "files": ["src", "bin", "skills", "integrations", ".claude-plugin", ".mcp.json", "index.d.ts", "README.md", "LICENSE"],
-  "engines": { "node": ">=20" },
+  "bin": {
+    "autoinfluencer": "bin/autoinfluencer.js"
+  },
+  "files": [
+    "src",
+    "bin",
+    "skills",
+    "integrations",
+    ".claude-plugin",
+    ".mcp.json",
+    "index.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "test": "node --test test/core.test.js test/server.test.js",
     "start": "node bin/autoinfluencer.js serve"

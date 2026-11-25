@@ -96,7 +96,7 @@ export async function callRemote(tool, args = {}, { env = process.env, fetch: f 
   const post = async (name, body) => {
     const r = await f(`${url}/api/${name}`, { method: 'POST', headers, body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
-    if (r.status === 402) throw new Error(`${j.error ?? 'payment required'} (buy credits at ${url}/#credits)`);
+    if (r.status === 402) throw new Error(`${j.error ?? 'payment required'} (plans and credits: ${url}/pricing)`);
     if (r.status === 401) throw new Error('not signed in: run "autoinfluencer login"');
     if (!r.ok) throw new Error(j.error ?? `${name} failed (${r.status})`);
     return j;

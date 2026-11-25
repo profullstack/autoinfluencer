@@ -10,7 +10,7 @@ const SITE = 'https://influencer.marketing.pit.world';
 const ai = { generateObject: async () => { throw new Error('unused'); } };
 
 // What each pack has always cost. A change here is a price change.
-const PRICES = { starter: [100, 500], creator: [500, 2000], agency: [2000, 6000] };
+const PRICES = { t1000: [1000, 1000], t2750: [2750, 2500], t6000: [6000, 5000], t13000: [13000, 10000], 'solo-month': [0, 4900], 'solo-year': [0, 49000], 'studio-month': [0, 14900], 'studio-year': [0, 149000] };
 
 /** A checkout whose `start` (coinpay.checkout in the app) only records what it was asked. */
 function wired({ who = { id: 'acc_1', email: 'ada@example.com' }, packs } = {}) {
@@ -38,20 +38,22 @@ const formPost = (checkout, fields, headers = {}) =>
 
 test('the option table is the pack table', () => {
   assert.deepEqual(Object.fromEntries(Object.entries(PACKS).map(([id, p]) => [id, [p.credits, Math.round(p.usd * 100)]])), PRICES);
-  assert.deepEqual(packOptions(), [
-    { id: 'starter', name: '100 credits', price: 5 },
-    { id: 'creator', name: '500 credits', price: 20 },
-    { id: 'agency', name: '2,000 credits', price: 60 },
+  assert.deepEqual(packOptions().slice(0, 5), [
+    { id: 't1000', name: '1,000 credits', price: 10 },
+    { id: 't2750', name: '2,750 credits', price: 25 },
+    { id: 't6000', name: '6,000 credits', price: 50 },
+    { id: 't13000', name: '13,000 credits', price: 100 },
+    { id: 'solo-month', name: 'Solo plan · 1 month', price: 49 },
   ]);
   const { checkout } = wired();
-  assert.deepEqual(checkout.config.options.map((o) => [o.id, o.kind, o.chargeCents]), [['starter', 'once', 500], ['creator', 'once', 2000], ['agency', 'once', 6000]]);
+  assert.deepEqual(checkout.config.options.map((o) => [o.id, o.kind, o.chargeCents]), Object.entries(PRICES).map(([id, [, c]]) => [id, 'once', c]));
   assert.equal(checkout.config.hasDiscount, false);
   assert.equal(checkout.config.guarantee, '');
   assert.equal(checkout.config.custom, null);
   assert.equal(checkout.config.requireAccount, true);
-  assert.equal(checkout.view({ query: 'option=agency' }).selected, 'agency');
-  assert.equal(checkout.view({ query: 'option=lifetime' }).selected, 'starter');
-  assert.equal(checkout.view({ query: 'option=creator' }).total, 'USD 20.00');
+  assert.equal(checkout.view({ query: 'option=studio-year' }).selected, 'studio-year');
+  assert.equal(checkout.view({ query: 'option=lifetime' }).selected, 't1000');
+  assert.equal(checkout.view({ query: 'option=t2750' }).total, 'USD 25.00');
 });
 
 test('the assets are the package files, as one script with no imports', () => {
@@ -69,9 +71,9 @@ test('pay() starts the existing checkout for the signed-in account and the chose
   }
   // Nothing in the form decides who pays or how much.
   const { checkout, calls } = wired();
-  await formPost(checkout, { option: 'starter', email: 'someone-else@example.com', account: 'acc_9', quantity: '9', amount: '1' });
-  assert.deepEqual(calls, [['acc_1', 'starter']]);
-  const coded = await formPost(checkout, { option: 'starter', code: 'FREE' });
+  await formPost(checkout, { option: 't1000', email: 'someone-else@example.com', account: 'acc_9', quantity: '9', amount: '1' });
+  assert.deepEqual(calls, [['acc_1', 't1000']]);
+  const coded = await formPost(checkout, { option: 't1000', code: 'FREE' });
   assert.equal(coded.status, 303);
   assert.match(coded.headers.get('location'), /error=invalid_code/);
   assert.equal(calls.length, 1);
@@ -79,12 +81,12 @@ test('pay() starts the existing checkout for the signed-in account and the chose
 
 test('signed out, another site, an unknown pack: nothing is started', async () => {
   const { checkout, calls } = wired();
-  const out = await formPost(checkout, { option: 'creator' }, { cookie: '' });
+  const out = await formPost(checkout, { option: 't2750' }, { cookie: '' });
   assert.equal(out.status, 303);
-  assert.equal(out.headers.get('location'), `/api/v1/coinpay/oauth/start?next=${encodeURIComponent('/checkout?option=creator')}`);
-  assert.equal(checkout.signInUrl('option=creator'), out.headers.get('location'));
+  assert.equal(out.headers.get('location'), `/api/v1/coinpay/oauth/start?next=${encodeURIComponent('/checkout?option=t2750')}`);
+  assert.equal(checkout.signInUrl('option=t2750'), out.headers.get('location'));
 
-  const foreign = await formPost(checkout, { option: 'creator' }, { origin: 'https://evil.example' });
+  const foreign = await formPost(checkout, { option: 't2750' }, { origin: 'https://evil.example' });
   assert.equal(foreign.status, 303);
   assert.match(foreign.headers.get('location'), /error=bad_origin/);
 
@@ -148,14 +150,14 @@ const pagePost = (base, fields, headers = {}) =>
 test('signed out: the page and the form both go to sign-in and come back with the pack', async () => {
   const app = await start();
   try {
-    const next = `/api/v1/coinpay/oauth/start?next=${encodeURIComponent('/checkout?option=creator')}`;
-    const page = await fetch(`${app.base}/checkout?option=creator`, { redirect: 'manual' });
+    const next = `/api/v1/coinpay/oauth/start?next=${encodeURIComponent('/checkout?option=t2750')}`;
+    const page = await fetch(`${app.base}/checkout?option=t2750`, { redirect: 'manual' });
     assert.equal(page.status, 302);
     assert.equal(page.headers.get('location'), next);
-    const posted = await pagePost(app.base, { option: 'creator' });
+    const posted = await pagePost(app.base, { option: 't2750' });
     assert.equal(posted.status, 303);
     assert.equal(posted.headers.get('location'), next);
-    assert.equal((await signIn(app.base, `next=${encodeURIComponent('/checkout?option=creator')}`)).location, '/checkout?option=creator');
+    assert.equal((await signIn(app.base, `next=${encodeURIComponent('/checkout?option=t2750')}`)).location, '/checkout?option=t2750');
     assert.equal((await signIn(app.base, `next=${encodeURIComponent('//evil.example/x')}`)).location, '/');
     assert.equal(app.sessions.length, 0);
 
@@ -172,14 +174,14 @@ test('signed in: the page renders as a plain form with our own assets and the fo
   const app = await start();
   try {
     const { cookie } = await signIn(app.base);
-    const res = await fetch(`${app.base}/checkout?option=agency`, { headers: { cookie } });
+    const res = await fetch(`${app.base}/checkout?option=studio-year`, { headers: { cookie } });
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('cache-control'), 'no-store');
     const html = await res.text();
     assert.match(html, /<form class="pfc-main" method="post" action="\/checkout">/);
     assert.match(html, /Buying as <strong>ada@example\.com<\/strong>/);
-    assert.match(html, /<input type="radio" name="option" value="agency" checked required>/);
-    assert.match(html, /0 credits · 3 free generations left today/);
+    assert.match(html, /<input type="radio" name="option" value="studio-year" checked required>/);
+    assert.match(html, /400 credits · Free plan/);
     assert.match(html, /site-footer/);
     assert.match(html, /<link rel="stylesheet" href="\/assets\/checkout\.css\?v=[0-9a-f]+">/);
     assert.match(html, /<script type="module" src="\/assets\/checkout\.js\?v=[0-9a-f]+"><\/script>/);
@@ -228,7 +230,7 @@ test('the page opens the same CoinPay session as POST /api/v1/credits/checkout, 
       assert.deepEqual(viaPage, {
         amount: cents / 100,
         currency: 'USD',
-        description: `autoinfluencer: ${credits} credits`,
+        description: PACKS[pack].plan ? `autoinfluencer: ${PACKS[pack].name}` : `autoinfluencer: ${credits} credits`,
         customer_email: 'ada@example.com',
         account_id: account.id,
         property: 'influencer.marketing.pit.world',
@@ -251,7 +253,7 @@ test('a form posted from another site is refused, signed in or not', async () =>
   try {
     const { cookie } = await signIn(app.base);
     for (const headers of [{ cookie, origin: 'https://evil.example' }, { origin: 'https://evil.example' }, { cookie, origin: 'null' }]) {
-      const res = await pagePost(app.base, { option: 'starter' }, headers);
+      const res = await pagePost(app.base, { option: 't1000' }, headers);
       assert.equal(res.status, 403);
     }
     const unknown = await pagePost(app.base, { option: 'lifetime' }, { cookie });

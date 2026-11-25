@@ -3,6 +3,8 @@
 // so one install gives the app, the CLI and an MCP server for Claude/Cursor/Codex.
 const { app, BrowserWindow, Menu, shell, clipboard, dialog } = require('electron');
 const path = require('node:path');
+const fs = require('node:fs');
+const { spawn } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
 
 const APP_URL = process.env.AUTOINFLUENCER_URL || 'https://influencer.marketing.pit.world';
@@ -27,6 +29,57 @@ function mcpConfig() {
     null,
     2,
   );
+}
+
+// ---- desktop environment: this computer does the app's browser work (posting, app capture)
+// through the W3BS desktop layer, over the two-way channel the bundled connector opens.
+let connector = null;
+const tokenFile = () => path.join(app.getPath('userData'), 'desktop-token');
+const savedToken = () => {
+  try {
+    return fs.readFileSync(tokenFile(), 'utf8').trim();
+  } catch {
+    return null;
+  }
+};
+
+function startConnector(token) {
+  stopConnector();
+  const bin = require.resolve('@profullstack/autoinfluencer/bin/autoinfluencer.js');
+  const log = fs.createWriteStream(path.join(app.getPath('userData'), 'connector.log'), { flags: 'a' });
+  connector = spawn(process.execPath, [bin, 'desktop', 'connect', '--url', APP_URL], {
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', AUTOINFLUENCER_DESKTOP_TOKEN: token },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  connector.stdout.pipe(log);
+  connector.stderr.pipe(log);
+  connector.on('exit', (code) => {
+    connector = null;
+    // A crash or a network outage: try again in 30 s while a token is saved.
+    if (code && savedToken()) setTimeout(() => savedToken() && !connector && startConnector(savedToken()), 30_000);
+    menu();
+  });
+  menu();
+}
+function stopConnector() {
+  const c = connector;
+  connector = null;
+  if (c) c.kill();
+}
+
+async function connectThisComputer() {
+  const clip = clipboard.readText().trim();
+  if (!clip.startsWith('dk_')) {
+    await dialog.showMessageBox({
+      message: 'Copy a desktop token first',
+      detail: 'In the app open Desktops, add this computer, and press "Copy token". Then choose this menu item again.\n\nThis computer also needs the W3BS desktop layer once:\n  curl -fsSL https://w3bs.org/desktop/install.sh | sh\n  w3bs desktop agents add autoinfluencer --preset broad\n  w3bs desktop browser launch',
+    });
+    return;
+  }
+  fs.mkdirSync(app.getPath('userData'), { recursive: true });
+  fs.writeFileSync(tokenFile(), clip, { mode: 0o600 });
+  startConnector(clip);
+  dialog.showMessageBox({ message: 'This computer is connected', detail: 'It stays connected while the app runs and reconnects when you open it. Jobs (posting, app capture) run through the W3BS desktop layer, which asks you once before an agent may drive.' });
 }
 
 function createWindow() {
@@ -69,6 +122,12 @@ function menu() {
           },
         },
         { label: 'Copy hosted MCP URL', click: () => clipboard.writeText(`${APP_URL}/mcp`) },
+        { type: 'separator' },
+        connector
+          ? { label: 'Disconnect this computer (desktop environment)', click: () => { fs.rmSync(tokenFile(), { force: true }); stopConnector(); } }
+          : { label: 'Connect this computer as a desktop environment…', click: connectThisComputer },
+        { label: 'Open connector log', click: () => shell.openPath(path.join(app.getPath('userData'), 'connector.log')) },
+        { type: 'separator' },
         {
           label: 'Show CLI command',
           click: () => {
@@ -100,7 +159,9 @@ if (!app.requestSingleInstanceLock()) app.quit();
 app.whenReady().then(() => {
   menu();
   createWindow();
+  if (savedToken()) startConnector(savedToken());
   app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow());
 });
 app.on('window-all-closed', () => process.platform !== 'darwin' && app.quit());
+app.on('before-quit', stopConnector);
 void pathToFileURL;

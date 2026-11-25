@@ -14,6 +14,10 @@ import { createX402, PRICE_CENTS } from './x402.js';
 import { allFooters, startFooterRefresh } from './footers.js';
 import { CHECKOUT_ASSETS, CHECKOUT_PATH, checkoutPage, creditsCheckout, toWebRequest } from './checkout.js';
 import { HttpError, NO_STORE, send, readBody, jsonBody, formBody, clientIp, cookie, sameOrigin, newId } from './util.js';
+import { createPlatform, DESKTOP_TOKEN_PREFIX } from './platform.js';
+import { createSites } from './sites.js';
+import { COSTS, pricing } from './plans.js';
+import { pricingPage } from './render.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC = join(ROOT, 'public');
@@ -57,7 +61,15 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
   function accountFor(req) {
     const auth = String(req.headers.authorization ?? '');
     if (auth.startsWith('Bearer ')) {
-      const id = oauth.accountForAccessToken(auth.slice(7).trim());
+      const tok = auth.slice(7).trim();
+      // A desktop environment's token acts as its account (the desktop -> us half of the channel).
+      if (tok.startsWith(DESKTOP_TOKEN_PREFIX)) {
+        const d = db.desktopByToken(platform.hashToken(tok));
+        if (!d) return undefined;
+        db.seeDesktop(d.id);
+        return db.accountById(d.account_id) ?? undefined;
+      }
+      const id = oauth.accountForAccessToken(tok);
       return id ? db.accountById(typeof id === 'object' ? id.id ?? id.account_id : id) : undefined; // undefined = bad bearer
     }
     return oauth.sessionFor(req.headers.cookie)?.account ?? null;
@@ -71,22 +83,44 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
     throw new HttpError(400, ctx?.account ? 'save a persona first (persona_save, or the web app)' : 'pass a persona object, or sign in and save one');
   };
   const base = createTools({ local: false, ai, resolvePersona, blockPrivate: true, env });
+  const platform = createPlatform({ db, ai, publicUrl, env, fetch: f });
+  const sites = createSites({ db, platform, publicUrl, env, fetch: f });
+  const payer = (ctx) => (ctx.account ? db.ownerOf(ctx.account.id) : null);
 
   function refund(ctx) {
     const c = ctx.charge;
     if (!c || c.refunded) return;
     c.refunded = true;
-    if (c.kind === 'free' || c.kind === 'credit') db.refund(ctx.account.id, c.kind, c.ref);
-    else if (c.kind === 'x402' && ctx.account) db.addCredits(ctx.account.id, 1, `x402-refund:${c.ref}`, 'refund of a paid call');
+    if (c.kind === 'free' || c.kind === 'credit') db.refund(payer(ctx), c.kind, c.ref);
+    else if (c.kind === 'x402' && ctx.account) db.addCredits(payer(ctx), c.cost ?? COSTS.generation, `x402-refund:${c.ref}`, 'refund of a paid call');
   }
 
-  const tools = base.map((tool) => {
-    if (!GENERATIVE.has(tool.name)) return tool;
+  /** Credits a call costs: platform tools say so; generations cost COSTS.generation unless brief. */
+  const costOf = (tool, args = {}) => (tool.cost ? tool.cost(args) : isPaid(tool.name, args) ? COSTS.generation : 0);
+
+  const tools = [...base, ...platform.tools].map((tool) => {
+    const slow = GENERATIVE.has(tool.name) || tool.slow;
+    if (!slow) {
+      if (!tool.cost) return tool;
+      // Paid but quick, or handing off to a desktop/reel job that refunds itself: refund on a throw.
+      return {
+        ...tool,
+        handler: async (args, ctx = {}) => {
+          try {
+            return await tool.handler(args, ctx);
+          } catch (e) {
+            refund(ctx);
+            throw e;
+          }
+        },
+      };
+    }
     return {
       ...tool,
       handler: async (args, ctx = {}) => {
-        if (!isPaid(tool.name, args)) return tool.handler(args, ctx);
+        if (!costOf(tool, args)) return tool.handler(args, ctx);
         const id = `job_${newId(12)}`;
+        let failure = null;
         db.createJob(id, ctx.account?.id, tool.name, ctx.charge?.kind);
         const work = tool
           .handler(args, ctx)
@@ -95,13 +129,15 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
             db.finishJob(id, { result });
           })
           .catch((err) => {
+            failure = err;
             refund(ctx);
             db.finishJob(id, { error: String(err?.message ?? err) });
           });
         const done = await Promise.race([work.then(() => true), new Promise((r) => setTimeout(() => r(false), Number(env.JOB_WAIT_MS ?? JOB_WAIT_MS)).unref?.())]);
         const job = db.job(id);
         if (done && job.status === 'done') return job.result;
-        if (done && job.status === 'failed') throw new HttpError(502, job.error);
+        // A refusal (limits, bad input) keeps its own status; a model failure is a 502.
+        if (done && job.status === 'failed') throw failure?.status ? failure : new HttpError(502, job.error);
         return { job: { id, status: 'running' }, note: 'Still writing on c0mpute. Call job_status with this id every few seconds.' };
       },
     };
@@ -152,7 +188,8 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
       annotations: { readOnlyHint: true },
       handler: async (_a, ctx = {}) => {
         if (!ctx.account) return { signed_in: false, x402_price_usd: PRICE_CENTS / 100 };
-        return { ...db.balance(ctx.account.id), x402_price_usd: PRICE_CENTS / 100, buy: `${publicUrl}${CHECKOUT_PATH}` };
+        const p = db.planOf(payer(ctx));
+        return { ...db.balance(payer(ctx)), plan: p.id, x402_price_usd: PRICE_CENTS / 100, costs: COSTS, buy: `${publicUrl}/pricing` };
       },
     },
   );
@@ -166,28 +203,40 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
       if (account === undefined) return null; // a bearer that is not ours
       const path = new URL(req.url, 'http://x').pathname;
       if (!account && path === '/mcp') return null; // connectors need the OAuth challenge
-      return account ? { account } : { anonymous: true };
+      return account ? { account, ip: clientIp(req) } : { anonymous: true, ip: clientIp(req) };
     },
     unauthorized: (req, res) => send(res, 401, { error: 'unauthorized', error_description: 'sign in with CoinPay via OAuth' }, { 'www-authenticate': oauth.challenge('mcp', req.headers.authorization ? 'invalid_token' : undefined), 'access-control-allow-origin': '*', 'access-control-expose-headers': 'www-authenticate' }),
     gate: async (req, res, { tool, ctx, args }) => {
-      if (!isPaid(tool.name, args ?? {})) return true;
+      if (ctx) ctx.ip = clientIp(req);
+      const cost = costOf(tool, args ?? {});
+      if (!cost) return true;
+      // Bad input answers 400 later without a charge: never take credits for a call that cannot run.
+      if (!z.object(tool.input).safeParse(args ?? {}).success) return true;
+      try {
+        tool.precheck?.(args ?? {}, ctx);
+      } catch (e) {
+        send(res, e.status || 400, { error: e.message });
+        return false;
+      }
       const ref = newId(12);
       if (ctx.account) {
-        const kind = db.spend(ctx.account.id, ref);
+        const kind = db.spend(payer(ctx), ref, cost, { free: GENERATIVE.has(tool.name), reason: tool.name });
         if (kind) {
-          ctx.charge = { kind, ref };
+          ctx.charge = { kind, ref, cost };
           return true;
         }
       }
-      const paid = await x402.settle(req, res, tool.name);
+      const paid = await x402.settle(req, res, tool.name, cost);
       if (paid.ok) {
-        ctx.charge = { kind: 'x402', ref: paid.tx ?? ref };
+        ctx.charge = { kind: 'x402', ref: paid.tx ?? ref, cost };
         return true;
       }
+      const brief = GENERATIVE.has(tool.name) ? ', use mode "brief" (free)' : '';
       return x402.deny(
         res,
         tool.name,
-        paid.reason !== 'no payment' ? paid.reason : ctx.account ? 'no free generations or credits left: buy a pack, use mode "brief" (free), or pay per call with x402' : 'sign in with CoinPay, use mode "brief" (free), or pay per call with x402',
+        paid.reason !== 'no payment' ? paid.reason : ctx.account ? `${tool.name} costs ${cost} credits and you have ${db.balance(payer(ctx)).credits}: top up or upgrade at ${publicUrl}/pricing${brief}, or pay per call with x402` : `sign in with CoinPay${brief}, or pay per call with x402 ($${(cost / 100).toFixed(2)})`,
+        cost,
       );
     },
   });
@@ -200,7 +249,9 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
     let body = await readFile(file);
     const type = TYPES[extname(file)] ?? 'application/octet-stream';
     if (rel === '/index.html') body = body.toString('utf8').replace('<!--FOOTERS-->', allFooters());
-    send(res, 200, body, { 'content-type': type, 'cache-control': rel === '/index.html' || rel === '/sw.js' ? 'no-cache' : 'public, max-age=3600' });
+    // embed.js is a module imported by sandboxed (opaque-origin) pages and other sites: CORS mode.
+    const cors = rel === '/embed.js' ? { 'access-control-allow-origin': '*' } : {};
+    send(res, 200, body, { 'content-type': type, 'cache-control': rel === '/index.html' || rel === '/sw.js' ? 'no-cache' : 'public, max-age=3600', ...cors });
     return true;
   }
 
@@ -293,7 +344,9 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
     const account = accountFor(req);
     if (path === '/api/v1/me' && method === 'GET') {
       if (!account) return send(res, 401, { error: 'not signed in', sign_in: '/api/v1/coinpay/oauth/start' }, NO_STORE);
-      return send(res, 200, { user: { id: account.id, name: account.name, email: account.email }, ...db.balance(account.id), persona: db.persona(account.id), x402_price_usd: PRICE_CENTS / 100 }, NO_STORE);
+      const ws = db.ownerOf(account.id);
+      const p = db.planOf(ws);
+      return send(res, 200, { user: { id: account.id, name: account.name, email: account.email }, workspace: ws, ...db.balance(ws), plan: { id: p.id, name: p.name, interval: p.interval, period_end: p.period_end, limits: p.limits }, persona: db.persona(account.id), x402_price_usd: PRICE_CENTS / 100, costs: COSTS }, NO_STORE);
     }
     if (path === '/api/v1/persona') {
       if (!account) throw new HttpError(401, 'not signed in');
@@ -311,6 +364,7 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
       return send(res, 200, await coinpay.checkout(account, (await jsonBody(req)).pack), NO_STORE);
     }
     if (path === '/api/v1/packs') return send(res, 200, { packs: PACKS, x402_price_usd: PRICE_CENTS / 100 });
+    if (path === '/api/v1/pricing') return send(res, 200, pricing(), { 'access-control-allow-origin': '*' });
     if (path === '/api/v1/logout' && method === 'POST') {
       sameOrigin(req, publicUrl);
       return send(res, 200, { ok: true }, { 'set-cookie': oauth.signOut(req.headers.cookie), ...NO_STORE });
@@ -324,7 +378,7 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
       const account = oauth.sessionFor(req.headers.cookie)?.account ?? null;
       if (!account) return send(res, 302, '', { location: checkout.signInUrl(url.searchParams), ...NO_STORE });
       const b = db.balance(account.id);
-      const form = checkout.html({ query: url.searchParams, account: { id: account.id, email: account.email || '' }, notes: [`${b.credits} credits · ${b.free_left} free generations left today`] });
+      const form = checkout.html({ query: url.searchParams, account: { id: account.id, email: account.email || '' }, notes: [`${b.credits.toLocaleString('en-US')} credits · ${db.planOf(account.id).name} plan`] });
       return send(res, 200, checkoutPage({ form, footers: allFooters(), who: account.name || account.email || 'signed in' }), { 'content-type': 'text/html; charset=utf-8', ...NO_STORE });
     }
     if (method !== 'POST') return send(res, 405, { error: 'GET or POST' }, { allow: 'GET, POST' });
@@ -334,6 +388,7 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
   }
 
   startFooterRefresh();
+  if (env.NODE_ENV !== 'test') platform.start();
 
   return async function handler(req, res) {
     const url = new URL(req.url, publicUrl);
@@ -341,11 +396,27 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
     const method = req.method;
     try {
       if (path === '/healthz' || path === '/health') return send(res, 200, { ok: true });
+      if (await sites(req, res, url)) return;
+      if (method === 'GET' && path === '/pricing') {
+        const who = oauth.sessionFor(req.headers.cookie)?.account;
+        return send(res, 200, pricingPage({ footers: allFooters(), who: who ? who.name || who.email || 'signed in' : '' }), { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' });
+      }
+      if (method === 'GET' && path === '/join') {
+        const who = oauth.sessionFor(req.headers.cookie)?.account;
+        if (!who) return send(res, 302, '', { location: `/api/v1/coinpay/oauth/start?return_to=${encodeURIComponent(path + url.search)}`, ...NO_STORE });
+        const ownerId = db.takeInvite(platform.hashToken(url.searchParams.get('t') ?? ''));
+        if (!ownerId || ownerId === who.id) {
+          const nonce = newNonce();
+          return send(res, 400, errorPage('That invite link is used, expired or your own.', nonce), pageHeaders(nonce));
+        }
+        db.join(who.id, ownerId);
+        return send(res, 302, '', { location: '/?joined=1', ...NO_STORE });
+      }
       const meta = { 'access-control-allow-origin': '*', 'cache-control': 'public, max-age=3600' };
       if (method === 'GET' && (path === '/.well-known/oauth-protected-resource' || path === '/.well-known/oauth-protected-resource/mcp')) return send(res, 200, oauth.resourceMetadata('mcp'), meta);
       if (method === 'GET' && path === '/.well-known/oauth-protected-resource/api/v1') return send(res, 200, oauth.resourceMetadata('api'), meta);
       if (method === 'GET' && ['/.well-known/oauth-authorization-server', '/.well-known/oauth-authorization-server/mcp', '/.well-known/openid-configuration'].includes(path)) return send(res, 200, oauth.serverMetadata(), meta);
-      if (path === '/robots.txt') return send(res, 200, 'User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /oauth/\n');
+      if (path === '/robots.txt') return send(res, 200, 'User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /oauth/\nDisallow: /a/\nDisallow: /f/\n');
       if (path.startsWith('/oauth/') || path === '/register') return await oauthRoute(req, res, path, method, url);
       if (path.startsWith('/api/v1/')) return await appRoute(req, res, path, method, url);
       if (path === '/mcp' || path === '/openapi.json' || /^\/api\/[a-z_]+$/.test(path)) return await toolHandler(req, res);

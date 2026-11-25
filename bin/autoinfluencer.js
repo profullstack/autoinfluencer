@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 import { createTools } from '../src/tools.js';
 import { examplePersona, savePersona, defaultPersonaPath, loadPersona } from '../src/persona.js';
 import { VERSION } from '../src/mcp.js';
@@ -30,10 +31,19 @@ Queue and publish
 
 Hosted app (${DEFAULT_URL}; sign in with CoinPay, pay per use)
   login [--url URL]                   sign in from this terminal (device code)
-  whoami                              account, free generations left, credits
+  whoami                              account, plan, credits
   persona push                        save your local persona on your account
   logout
   --remote                            run any write command on the hosted app
+
+Platform: sites, blog, forms, bookings, shop, social, ads, reels, desktops, plans
+  tui                                 every tool as menus and forms in this terminal
+  tools                               list every tool on the hosted app
+  call <tool> ['{json}' | key=value ...]   run any tool (call site_list, call blog_write topic="CI")
+  site deploy <dir> [--site slug] [--yes]  upload a built site as a new live version
+  desktop connect --token dk_...      keep this computer connected as a desktop environment
+                                      (jobs run through the W3BS desktop layer: w3bs.org/desktop)
+  pricing                             plans, credit costs and top-ups
 
 Surfaces
   mcp                                 MCP server over stdio
@@ -74,6 +84,9 @@ const { values: o, positionals } = parseArgs({
     host: { type: 'string' },
     remote: { type: 'boolean', short: 'r' },
     url: { type: 'string' },
+    site: { type: 'string' },
+    token: { type: 'string' },
+    note: { type: 'string' },
   },
 });
 
@@ -158,6 +171,74 @@ async function main() {
     }
     case 'run':
       return show(await call('publish_due', { confirm: !!o.yes, limit: num(o.limit) }));
+    case 'tui': {
+      const { runTui } = await import('../src/tui.js');
+      return runTui();
+    }
+    case 'tools': {
+      const { loadTools, groupTools } = await import('../src/tui.js');
+      const list = await loadTools(await appUrl());
+      if (o.json) return print(list.map(({ name, title, description }) => ({ name, title, description })));
+      for (const g of groupTools(list)) {
+        out(`\n${g.name}`);
+        for (const t of g.tools) out(`  ${t.name.padEnd(22)} ${t.title ?? ''}`);
+      }
+      return out('\nRun one: autoinfluencer call <tool> key=value ...   (or the TUI: autoinfluencer tui)');
+    }
+    case 'call': {
+      const [name, ...kv] = rest;
+      if (!name) throw new Error('call <tool> [json | key=value ...] (autoinfluencer tools lists them)');
+      let args = {};
+      if (kv[0] === '-') args = JSON.parse(await stdin());
+      else if (kv[0]?.trim().startsWith('{')) args = JSON.parse(kv.join(' '));
+      else {
+        for (const pair of kv) {
+          const i = pair.indexOf('=');
+          if (i < 1) throw new Error(`"${pair}" is not key=value`);
+          const v = pair.slice(i + 1);
+          try {
+            args[pair.slice(0, i)] = JSON.parse(v);
+          } catch {
+            args[pair.slice(0, i)] = v;
+          }
+        }
+      }
+      return print(await callRemote(name, args, { onWait: () => process.stderr.write('.') }));
+    }
+    case 'pricing': {
+      const p = await (await fetch(`${await appUrl()}/api/v1/pricing`)).json();
+      if (o.json) return print(p);
+      for (const pl of p.plans) out(`${pl.name.padEnd(8)} ${pl.contact ? `from $${pl.usd.month}/mo + $${pl.per_client_usd}/client` : `$${pl.usd.month}/mo${pl.usd.year ? ` or $${pl.usd.year}/yr` : ''}`}  ${pl.credits_monthly ? `${pl.credits_monthly} credits/mo` : pl.credits_once ? `${pl.credits_once} credits once` : ''}  ${pl.blurb}`);
+      out(`\nCredits (1 = $${p.credit_usd}): ${Object.entries(p.costs).map(([k, v]) => `${k} ${v}`).join(', ')}`);
+      out(`Top-ups: ${p.topups.map((t) => `${t.credits} for $${t.usd}`).join(', ')}`);
+      return out(`Free: ${p.free_without_credits.join(', ')}`);
+    }
+    case 'site': {
+      if (rest[0] !== 'deploy' || !rest[1]) throw new Error('site deploy <dir> [--site slug] [--yes]');
+      return deploySite(rest[1]);
+    }
+    case 'desktop': {
+      if (rest[0] !== 'connect') throw new Error('desktop connect --token dk_...');
+      const { connect, SETUP } = await import('../src/desktop-connector.js');
+      const ac = new AbortController();
+      process.on('SIGINT', () => ac.abort());
+      process.on('SIGTERM', () => ac.abort());
+      return connect({
+        url: await appUrl(),
+        token: o.token ?? process.env.AUTOINFLUENCER_DESKTOP_TOKEN,
+        signal: ac.signal,
+        onEvent: (e) => {
+          const t = new Date().toISOString().slice(11, 19);
+          if (e.type === 'connected') {
+            process.stderr.write(`${t} connected as "${e.desktop.name}" · W3BS broker ${e.info.broker ? 'ok' : 'NOT FOUND'} · agent browser ${e.info.browser ? 'ok' : 'not found'}\n`);
+            if (!e.info.broker || !e.info.browser) process.stderr.write(`   set it up once:\n   ${SETUP.join('\n   ')}\n`);
+          } else if (e.type === 'job') process.stderr.write(`${t} job ${e.job.type} ${e.job.payload?.platform ?? e.job.payload?.url ?? ''}\n`);
+          else if (e.type === 'result') process.stderr.write(`${t}   ${e.ok ? 'done' : `failed: ${e.error}`}${e.result?.url ? ` ${e.result.url}` : ''}\n`);
+          else if (e.type === 'log') process.stderr.write(`${t} ${e.message}\n`);
+          else if (e.type === 'error') process.stderr.write(`${t} ${e.message} (retrying in ${Math.round(e.retry_in_ms / 1000)}s)\n`);
+        },
+      });
+    }
     case 'mcp': {
       const { serveStdio } = await import('../src/mcp.js');
       return serveStdio({ local: true });
@@ -172,6 +253,53 @@ async function main() {
     default:
       throw new Error(`unknown command "${cmd}" (try --help)`);
   }
+}
+
+/** The hosted app's address: --url, the signed-in one, AUTOINFLUENCER_URL, or the default. */
+async function appUrl() {
+  const auth = await readAuth();
+  return (o.url ?? auth?.url ?? process.env.AUTOINFLUENCER_URL ?? DEFAULT_URL).replace(/\/$/, '');
+}
+
+/** Upload a folder as a new site version, in batches under the request size limit. */
+async function deploySite(dir) {
+  const files = [];
+  const walk = async (d) => {
+    for (const e of await readdir(d, { withFileTypes: true })) {
+      if (e.name.startsWith('.')) continue;
+      const p = join(d, e.name);
+      if (e.isDirectory()) await walk(p);
+      else if (e.isFile()) files.push(p);
+    }
+  };
+  if (!(await stat(dir)).isDirectory()) throw new Error(`${dir} is not a folder`);
+  await walk(dir);
+  const rel = (p) => relative(dir, p).split(sep).join('/');
+  if (!files.some((p) => rel(p) === 'index.html')) throw new Error(`${dir} has no index.html at its root`);
+  const total = (await Promise.all(files.map((p) => stat(p)))).reduce((n, s) => n + s.size, 0);
+  out(`${files.length} files, ${(total / 1024).toFixed(0)} KB from ${dir}${o.site ? ` to ${o.site}` : ''}`);
+  if (!o.yes) return out('dry run: add --yes to make this the live version');
+  let batch = [];
+  let size = 0;
+  let deploy;
+  let res;
+  const send = async (finish) => {
+    res = await callRemote('site_deploy', { site: o.site, files: batch, deploy, finish, confirm: finish || undefined, note: o.note });
+    deploy = res.deploy ?? deploy;
+    batch = [];
+    size = 0;
+  };
+  for (const [i, p] of files.entries()) {
+    const buf = await readFile(p);
+    batch.push({ path: rel(p), content: buf.toString('base64'), encoding: 'base64' });
+    size += buf.length;
+    if (size > 600_000 && i < files.length - 1) {
+      await send(false);
+      process.stderr.write(`  uploaded ${i + 1}/${files.length}\n`);
+    }
+  }
+  await send(true);
+  return out(`version ${res.version} is live: ${res.url}`);
 }
 
 function out(s) {

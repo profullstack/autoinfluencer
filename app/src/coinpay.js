@@ -4,13 +4,18 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { CoinPay, readWebhook, verifyWebhook } from '@profullstack/coinpay-onboard';
 import { HttpError, newId } from './util.js';
+import { TOPUPS, PLANS, PAID_PLANS } from './plans.js';
 
 const b64url = (b) => Buffer.from(b).toString('base64url');
 
+/** Everything the checkout sells: credit top-ups, then each paid plan by month and by year. */
 export const PACKS = {
-  starter: { credits: 100, usd: 5 },
-  creator: { credits: 500, usd: 20 },
-  agency: { credits: 2000, usd: 60 },
+  ...TOPUPS,
+  ...Object.fromEntries(
+    PAID_PLANS.flatMap((id) =>
+      ['month', 'year'].map((interval) => [`${id}-${interval}`, { credits: 0, usd: PLANS[id].usd[interval], name: `${PLANS[id].name} plan · 1 ${interval}`, plan: id, interval }]),
+    ),
+  ),
 };
 
 export function createCoinpay({ env, db, publicUrl, fetch: f = globalThis.fetch }) {
@@ -86,7 +91,7 @@ export function createCoinpay({ env, db, publicUrl, fetch: f = globalThis.fetch 
       const id = `chk_${newId(10)}`;
       const session = await cp.createCheckoutSession({
         amount: pack.usd,
-        description: `autoinfluencer: ${pack.credits} credits`,
+        description: pack.plan ? `autoinfluencer: ${pack.name}` : `autoinfluencer: ${pack.credits} credits`,
         customerEmail: account.email || `${account.id}@users.influencer.marketing.pit.world`,
         accountId: account.id,
         property: 'influencer.marketing.pit.world',
@@ -109,7 +114,11 @@ export function createCoinpay({ env, db, publicUrl, fetch: f = globalThis.fetch 
       if (!ev.paid) return { ignored: true };
       const chk = db.checkout(ev.metadata?.checkout_id);
       if (!chk) return { ignored: true, reason: 'unknown checkout' };
-      const applied = db.addCredits(chk.account_id, chk.credits, ev.eventId || `${ev.checkoutSessionId}:${ev.paymentId}`, `pack ${chk.pack}`);
+      const ref = ev.eventId || `${ev.checkoutSessionId}:${ev.paymentId}`;
+      const plan = PACKS[chk.pack]?.plan;
+      const applied = plan
+        ? db.startPlan(chk.account_id, plan, PACKS[chk.pack].interval, ref)
+        : db.addCredits(chk.account_id, chk.credits, ref, `pack ${chk.pack}`);
       db.markCheckout(chk.id, 'paid');
       return { ok: true, applied };
     },

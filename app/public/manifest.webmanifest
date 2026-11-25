@@ -15,7 +15,10 @@
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ],
   "shortcuts": [
-    { "name": "Draft a post", "url": "/?tool=draft" },
-    { "name": "Repurpose a link", "url": "/?tool=repurpose" }
+    { "name": "Write posts", "url": "/#write" },
+    { "name": "Sites", "url": "/#sites" },
+    { "name": "Inbox", "url": "/#inbox" },
+    { "name": "Scheduled posts", "url": "/#social" },
+    { "name": "Desktops", "url": "/#desktops" }
   ]
 }

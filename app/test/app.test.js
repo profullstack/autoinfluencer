@@ -98,16 +98,22 @@ test('CoinPay sign-in binds by sub; free tier, refunds and 402', async () => {
       assert.equal(d.mode, 'ai', JSON.stringify(d));
       assert.ok(d.posts[0].text.includes('(AI-assisted)'));
     }
+    // The Free plan's 400 one-time credits pay for the 4th: 5 credits.
+    const acc = app.db.accountBySub('cp-user-1');
+    assert.equal(app.db.balance(acc.id).credits, 400);
+    assert.equal((await post(app.base, '/api/draft', { topic: 'ci' }, { cookie: sid })).status, 200);
+    assert.equal(app.db.balance(acc.id).credits, 395);
+
+    app.db.raw.prepare('update balances set credits = 0').run();
     const out = await post(app.base, '/api/draft', { topic: 'ci' }, { cookie: sid });
     assert.equal(out.status, 402);
-    assert.match((await out.json()).error, /no free generations/);
+    assert.match((await out.json()).error, /costs 5 credits and you have 0/);
 
-    const acc = app.db.accountBySub('cp-user-1');
     assert.equal(app.db.addCredits(acc.id, 5, 'evt_1'), true);
     assert.equal(app.db.addCredits(acc.id, 5, 'evt_1'), false);
     assert.equal(app.db.balance(acc.id).credits, 5);
     assert.equal((await post(app.base, '/api/draft', { topic: 'ci' }, { cookie: sid })).status, 200);
-    assert.equal(app.db.balance(acc.id).credits, 4);
+    assert.equal(app.db.balance(acc.id).credits, 0);
   } finally {
     app.close();
   }

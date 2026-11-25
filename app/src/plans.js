@@ -37,7 +37,7 @@ export const PLANS = {
     creditsMonthly: 0,
     limits: { sites: 1, pages: 5, deployMb: 5, filesPerDeploy: 150, versions: 10, forms: 3, languages: 2, seats: 1, domain: false, shop: false, bookings: false, reels: false, badge: true, watermark: true },
     features: [
-      'Website on yourname.influencer.marketing.pit.world/s/…',
+      'Website at influencer.marketing.pit.world/site/yourname',
       'Blog, contact forms and newsletter sign-ups',
       'Schedule and publish to every network from your desktop environment',
       '400 credits once (about 6 ads and 1 blog post)',

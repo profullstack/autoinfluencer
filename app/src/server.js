@@ -416,7 +416,7 @@ export async function createApp({ env = process.env, db = openDb(env.DB_PATH || 
       if (method === 'GET' && (path === '/.well-known/oauth-protected-resource' || path === '/.well-known/oauth-protected-resource/mcp')) return send(res, 200, oauth.resourceMetadata('mcp'), meta);
       if (method === 'GET' && path === '/.well-known/oauth-protected-resource/api/v1') return send(res, 200, oauth.resourceMetadata('api'), meta);
       if (method === 'GET' && ['/.well-known/oauth-authorization-server', '/.well-known/oauth-authorization-server/mcp', '/.well-known/openid-configuration'].includes(path)) return send(res, 200, oauth.serverMetadata(), meta);
-      if (path === '/robots.txt') return send(res, 200, 'User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /oauth/\nDisallow: /a/\nDisallow: /f/\n');
+      if (path === '/robots.txt') return send(res, 200, 'User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /oauth/\nDisallow: /ad/\nDisallow: /f/\n');
       if (path.startsWith('/oauth/') || path === '/register') return await oauthRoute(req, res, path, method, url);
       if (path.startsWith('/api/v1/')) return await appRoute(req, res, path, method, url);
       if (path === '/mcp' || path === '/openapi.json' || /^\/api\/[a-z_]+$/.test(path)) return await toolHandler(req, res);

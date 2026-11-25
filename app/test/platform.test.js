@@ -84,11 +84,11 @@ test('sites: create, deploy in batches, sandboxed serving with the badge, versio
     const call = client(app.base, { cookie: await signIn(app.base) });
     const { site } = await call('site_create', { name: 'Brandco', brand_from: 'https://brand.example/' });
     assert.equal(site.slug, 'brandco');
-    assert.equal(site.url, 'http://127.0.0.1/s/brandco/');
+    assert.equal(site.url, 'http://127.0.0.1/site/brandco/');
     await call('site_create', { name: 'Second' }, 402); // Free: one site
 
     // Before any deploy: the starter page, contact form and blog work.
-    const starter = await fetch(`${app.base}/s/brandco/`);
+    const starter = await fetch(`${app.base}/site/brandco/`);
     assert.equal(starter.status, 200);
     assert.match(starter.headers.get('content-security-policy'), /^sandbox allow-scripts/);
     assert.doesNotMatch(starter.headers.get('content-security-policy'), /allow-same-origin/);
@@ -103,18 +103,18 @@ test('sites: create, deploy in batches, sandboxed serving with the badge, versio
     const live = await call('site_deploy', { site: 'brandco', deploy: first.deploy, files: [{ path: 'logo.png', content: Buffer.from([137, 80, 78, 71]).toString('base64'), encoding: 'base64' }], confirm: true });
     assert.equal(live.version, 1);
     assert.equal(live.files, 2);
-    assert.match(await (await fetch(`${app.base}/s/brandco/`)).text(), /<h1>v1<\/h1>.*Built with autoinfluencer/s);
-    const png = await fetch(`${app.base}/s/brandco/logo.png`);
+    assert.match(await (await fetch(`${app.base}/site/brandco/`)).text(), /<h1>v1<\/h1>.*Built with autoinfluencer/s);
+    const png = await fetch(`${app.base}/site/brandco/logo.png`);
     assert.equal(png.headers.get('content-type'), 'image/png');
 
     await call('site_deploy', { site: 'brandco', files: [{ path: '../etc/passwd', content: 'x' }], confirm: true }, 400);
     await call('site_deploy', { site: 'brandco', files: [{ path: 'about.html', content: 'no index' }], confirm: true }, 400);
     await call('site_deploy', { site: 'brandco', files: [{ path: 'index.html', content: '<h1>v2</h1>' }], confirm: true });
-    assert.match(await (await fetch(`${app.base}/s/brandco/`)).text(), /v2/);
+    assert.match(await (await fetch(`${app.base}/site/brandco/`)).text(), /v2/);
     const { versions } = await call('site_versions', { site: 'brandco' });
     assert.deepEqual(versions.map((v) => [v.version, v.status]), [[2, 'live'], [1, 'old']]);
     await call('site_rollback', { site: 'brandco', version: 1, confirm: true });
-    assert.match(await (await fetch(`${app.base}/s/brandco/`)).text(), /v1/);
+    assert.match(await (await fetch(`${app.base}/site/brandco/`)).text(), /v1/);
 
     // Free has 5 pages.
     const many = Array.from({ length: 6 }, (_, i) => ({ path: i ? `p${i}.html` : 'index.html', content: 'x' }));
@@ -137,11 +137,11 @@ test('blog: written on c0mpute for 60 credits, published pages, feed, translatio
     const w = await call('blog_write', { topic: 'CI caching', publish: true });
     assert.equal(w.post.status, 'published');
     assert.equal(app.db.balance(acc.id).credits, PLANS.free.creditsOnce - COSTS.blog_post);
-    const page = await (await fetch(`${app.base}/s/brandco/blog/${w.post.slug}`)).text();
+    const page = await (await fetch(`${app.base}/site/brandco/blog/${w.post.slug}`)).text();
     assert.match(page, /<h1>Caching CI by lockfile hash<\/h1>/);
     assert.match(page, /<h3>Why<\/h3>/);
-    assert.match(await (await fetch(`${app.base}/s/brandco/blog/`)).text(), /Caching CI/);
-    const feed = await fetch(`${app.base}/s/brandco/feed.xml`);
+    assert.match(await (await fetch(`${app.base}/site/brandco/blog/`)).text(), /Caching CI/);
+    const feed = await fetch(`${app.base}/site/brandco/feed.xml`);
     assert.match(feed.headers.get('content-type'), /rss/);
     assert.match(await feed.text(), /<item><title>Caching CI by lockfile hash/);
     const posts = await (await pub(app.base, 'brandco', 'posts')).json();
@@ -154,7 +154,7 @@ test('blog: written on c0mpute for 60 credits, published pages, feed, translatio
 
     const draft = await call('blog_save', { title: 'Hand written', body_md: 'Hello **world**' });
     assert.equal(draft.post.status, 'draft');
-    assert.equal((await fetch(`${app.base}/s/brandco/blog/hand-written`)).status, 404);
+    assert.equal((await fetch(`${app.base}/site/brandco/blog/hand-written`)).status, 404);
 
     // A model failure gives the credits back.
     const before = app.db.balance(acc.id).credits;
@@ -220,7 +220,7 @@ test('forms, newsletter and inbox from the drop-in endpoints; bookings and shop 
     const { request } = await import('node:http');
     const onDomain = await new Promise((ok, no) => request(`${app.base}/`, { headers: { host: 'www.brandco.com' } }, (r) => { let b = ''; r.on('data', (c) => (b += c)); r.on('end', () => ok(b)); }).on('error', no).end());
     assert.match(onDomain, /<h1>Brandco<\/h1>/);
-    assert.doesNotMatch(await (await fetch(`${app.base}/s/brandco/`)).text(), /Built with autoinfluencer/); // paid: no badge
+    assert.doesNotMatch(await (await fetch(`${app.base}/site/brandco/`)).text(), /Built with autoinfluencer/); // paid: no badge
   } finally {
     app.close();
   }

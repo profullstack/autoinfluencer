@@ -1,4 +1,4 @@
-// Public HTTP for what people build here: their sites (on /s/<slug>/ and their own domains),
+// Public HTTP for what people build here: their sites (on /site/<slug>/ and their own domains),
 // blog pages and feed, ads, capture frames, reels, the drop-in components' endpoints
 // (forms, newsletter, bookings, shop, blog feed) and the desktop connector's channel.
 import { createHash } from 'node:crypto';
@@ -32,7 +32,7 @@ export function createSites({ db, platform, publicUrl, env = process.env, fetch:
   // --------------------------------------------------------------- site pages
   function serveSite(req, res, s, rest, url) {
     const plan = db.planOf(s.account_id);
-    const base = s.domain && req.headers.host?.split(':')[0] === s.domain ? '' : `${publicUrl}/s/${s.slug}`;
+    const base = s.domain && req.headers.host?.split(':')[0] === s.domain ? '' : `${publicUrl}/site/${s.slug}`;
     const brand = brandOf(s, db.persona(s.account_id));
     const html = (body) => send(res, 200, plan.limits.badge ? withBadge(body, publicUrl) : body, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=60', ...USER_HEADERS });
     const path = decodeURIComponent(rest).replace(/^\/+/, '');
@@ -99,7 +99,7 @@ export function createSites({ db, platform, publicUrl, env = process.env, fetch:
 
     if (method === 'GET' && action === 'posts') {
       const lim = Math.min(20, Number(url.searchParams.get('limit')) || 5);
-      const base = s.domain ? `https://${s.domain}` : `${publicUrl}/s/${s.slug}`;
+      const base = s.domain ? `https://${s.domain}` : `${publicUrl}/site/${s.slug}`;
       return ok({ posts: db.posts(s.id, { status: 'published', lang: url.searchParams.get('lang') || 'en' }).slice(0, lim).map((p) => ({ title: p.title, summary: p.summary, url: `${base}/blog/${p.slug}`, published_at: new Date(p.published_at).toISOString() })) });
     }
     if (method === 'GET' && action.startsWith('form/')) {
@@ -238,7 +238,7 @@ export function createSites({ db, platform, publicUrl, env = process.env, fetch:
         return true;
       }
     }
-    let m = path.match(/^\/s\/([a-z0-9-]+)(\/.*)?$/);
+    let m = path.match(/^\/site\/([a-z0-9-]+)(\/.*)?$/);
     if (m && (method === 'GET' || method === 'HEAD')) {
       const s = db.siteBySlug(m[1]);
       if (!s) {
@@ -246,7 +246,7 @@ export function createSites({ db, platform, publicUrl, env = process.env, fetch:
         return true;
       }
       if (m[2] === undefined) {
-        send(res, 301, '', { location: `/s/${m[1]}/` });
+        send(res, 301, '', { location: `/site/${m[1]}/` });
         return true;
       }
       serveSite(req, res, s, m[2], url);
@@ -262,7 +262,7 @@ export function createSites({ db, platform, publicUrl, env = process.env, fetch:
       await desktopApi(req, res, m[1], method);
       return true;
     }
-    m = path.match(/^\/a\/(ad_[\w-]+)\/(1x1|4x5|9x16)\.svg$/);
+    m = path.match(/^\/ad\/(ad_[\w-]+)\/(1x1|4x5|9x16)\.svg$/);
     if (m && method === 'GET') {
       const a = db.ad(m[1]);
       if (!a) return send(res, 404, 'no such ad'), true;

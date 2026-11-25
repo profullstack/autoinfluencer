@@ -115,7 +115,7 @@ export function extractBrand(html, pageUrl, css = '') {
   const darks = ranked.filter((c) => luminance(c) < 0.06);
   const bg = darks[0] ?? '#111111';
   const fg = luminance(bg) > 0.4 ? '#111111' : '#ffffff';
-  const font = (`${css}\n${html}`.match(/font-family:\s*["']?([A-Za-z0-9 \-]+)["']?/i)?.[1] ?? 'system-ui').trim();
+  const font = ([...`${css}\n${html}`.matchAll(/font-family:\s*["']?([A-Za-z0-9 \-]+)["']?/gi)].map((m) => m[1].trim()).find((f) => !/^(var|inherit|initial|unset)$/i.test(f)) ?? 'system-ui');
   const icon = html.match(/<link[^>]+rel=["'](?:apple-touch-icon|icon)["'][^>]*href=["']([^"']+)/i)?.[1] || meta('og:image');
   let logo = null;
   try {
